@@ -15,6 +15,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800;900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
   </head>
   <body>
+    <!-- 3D Simulator WebGL Canvas -->
+    <canvas id="sim-canvas"></canvas>
+
     <!-- Animated background mesh -->
     <div id="ambient-background" class="ambient-bg">
       <div class="glow-orb orb-1"></div>
@@ -23,78 +26,138 @@
     </div>
 
     <div id="app">
-      <!-- Real-time telemetry debug overlay -->
-      <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
-        <div class="telemetry-item">
-          <span class="label">THR (Throttle):</span>
-          <span id="telemetry-throttle" class="value">0.00</span>
-        </div>
-        <div class="telemetry-item">
-          <span class="label">YAW (Yaw):</span>
-          <span id="telemetry-yaw" class="value">0.00</span>
-        </div>
-        <div class="telemetry-item">
-          <span class="label">PIT (Pitch):</span>
-          <span id="telemetry-pitch" class="value">0.00</span>
-        </div>
-        <div class="telemetry-item">
-          <span class="label">ROL (Roll):</span>
-          <span id="telemetry-roll" class="value">0.00</span>
-        </div>
-      </header>
+      <!-- ==================== MAIN MENU VIEW ==================== -->
+      <section id="main-menu-view" class="app-view active-view">
+        <!-- Centered Main Menu UI -->
+        <main id="main-menu" class="glass-panel menu-panel">
+          <div class="menu-header">
+            <div class="logo-accent"></div>
+            <h1 id="app-title">FPV Academy</h1>
+            <p class="subtitle">Симулятор та освітня платформа польотів на квадрокоптерах</p>
+          </div>
+          
+          <nav class="menu-nav" aria-label="Головне меню">
+            <button id="btn-simulator" class="menu-btn primary-glow">
+              <span class="btn-text">Симулятор (3D)</span>
+              <span class="btn-indicator"></span>
+            </button>
+            <button id="btn-controller" class="menu-btn">
+              <span class="btn-text">Контролер для ПК</span>
+              <span class="btn-indicator"></span>
+            </button>
+            <button id="btn-builder" class="menu-btn">
+              <span class="btn-text">Конструктор дрона</span>
+              <span class="btn-indicator"></span>
+            </button>
+            <button id="btn-knowledge" class="menu-btn">
+              <span class="btn-text">База знань</span>
+              <span class="btn-indicator"></span>
+            </button>
+          </nav>
+        </main>
+      </section>
 
-      <!-- Centered Main Menu UI -->
-      <main id="main-menu" class="glass-panel menu-panel">
-        <div class="menu-header">
-          <div class="logo-accent"></div>
-          <h1 id="app-title">FPV Academy</h1>
-          <p class="subtitle">Симулятор та освітня платформа польотів на квадрокоптерах</p>
-        </div>
-        
-        <nav class="menu-nav" aria-label="Головне меню">
-          <button id="btn-simulator" class="menu-btn primary-glow">
-            <span class="btn-text">Симулятор (3D)</span>
-            <span class="btn-indicator"></span>
-          </button>
-          <button id="btn-controller" class="menu-btn">
-            <span class="btn-text">Контролер для ПК</span>
-            <span class="btn-indicator"></span>
-          </button>
-          <button id="btn-builder" class="menu-btn">
-            <span class="btn-text">Конструктор дрона</span>
-            <span class="btn-indicator"></span>
-          </button>
-          <button id="btn-knowledge" class="menu-btn">
-            <span class="btn-text">База знань</span>
-            <span class="btn-indicator"></span>
-          </button>
-        </nav>
-      </main>
+      <!-- ==================== SIMULATOR VIEW ==================== -->
+      <section id="sim-view" class="app-view hidden-view">
+        <!-- Floating Navigation Back Button -->
+        <button id="btn-back-to-menu-sim" class="glass-panel back-btn" aria-label="Назад в меню">
+          <span class="back-icon">←</span>
+          <span class="btn-text" id="back-btn-text-sim">Назад в меню</span>
+        </button>
 
-      <!-- Floating Virtual Joysticks (Mode 2) -->
-      <section id="virtual-controller-overlay" aria-label="Віртуальний пульт керування">
-        <!-- Left Joystick (Throttle & Yaw) -->
-        <div id="joystick-left" class="joystick-zone">
-          <div class="joystick-ring">
-            <div class="axis-guide horizontal"></div>
-            <div class="axis-guide vertical"></div>
-            <div id="handle-left" class="joystick-handle">
-              <div class="handle-grip"></div>
+        <!-- Real-time telemetry debug overlay -->
+        <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
+          <div class="telemetry-item">
+            <span class="label">THR:</span>
+            <span id="telemetry-throttle" class="value">0.00</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">YAW:</span>
+            <span id="telemetry-yaw" class="value">0.00</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">PIT:</span>
+            <span id="telemetry-pitch" class="value">0.00</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">ROL:</span>
+            <span id="telemetry-roll" class="value">0.00</span>
+          </div>
+        </header>
+
+        <!-- Floating Virtual Joysticks (Mode 2) -->
+        <div id="virtual-controller-overlay" aria-label="Віртуальний пульт керування">
+          <!-- Left Joystick (Throttle & Yaw) -->
+          <div id="joystick-left" class="joystick-zone">
+            <div class="joystick-ring">
+              <div class="axis-guide horizontal"></div>
+              <div class="axis-guide vertical"></div>
+              <div id="handle-left" class="joystick-handle">
+                <div class="handle-grip"></div>
+              </div>
+              <span class="joystick-label">THROTTLE / YAW (MODE 2)</span>
             </div>
-            <span class="joystick-label">THROTTLE / YAW (MODE 2)</span>
+          </div>
+
+          <!-- Right Joystick (Pitch & Roll) -->
+          <div id="joystick-right" class="joystick-zone">
+            <div class="joystick-ring">
+              <div class="axis-guide horizontal"></div>
+              <div class="axis-guide vertical"></div>
+              <div id="handle-right" class="joystick-handle">
+                <div class="handle-grip"></div>
+              </div>
+              <span class="joystick-label">PITCH / ROLL (MODE 2)</span>
+            </div>
           </div>
         </div>
 
-        <!-- Right Joystick (Pitch & Roll) -->
-        <div id="joystick-right" class="joystick-zone">
-          <div class="joystick-ring">
-            <div class="axis-guide horizontal"></div>
-            <div class="axis-guide vertical"></div>
-            <div id="handle-right" class="joystick-handle">
-              <div class="handle-grip"></div>
+        <!-- Landscape lock overlay (for portrait screens) -->
+        <div id="orientation-overlay" class="glass-panel orientation-overlay hidden-overlay">
+          <div class="orientation-content">
+            <div class="rotate-icon-container">
+              <svg class="rotate-icon" viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
+                <path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h-2.02c-.35-2.89-1.95-5.38-4.48-6.66l1.43-1.42.02-.02-3.13-1.07 1.07 3.13 1.14-1.44zm-8.96 0L8.66 3.96 9.73.83l-3.13 1.07 1.43 1.42c-2.53 1.28-4.13 3.77-4.48 6.66H1.54C1.9 6.24 4.24 3.07 7.51 1.52l.01-.01v1.01zM22 13h-2v4c0 .55-.45 1-1 1H5c-.55 0-1-.45-1-1v-4H2v4c0 1.66 1.34 3 3 3h14c1.66 0 3-1.34 3-3v-4z"/>
+              </svg>
             </div>
-            <span class="joystick-label">PITCH / ROLL (MODE 2)</span>
+            <p id="orientation-text" class="orientation-text">Будь ласка, поверніть пристрій у горизонтальний режим для польоту.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- ==================== PLACEHOLDER VIEW: PC CONTROLLER ==================== -->
+      <section id="controller-view" class="app-view hidden-view">
+        <button id="btn-back-to-menu-ctrl" class="glass-panel back-btn" aria-label="Назад в меню">
+          <span class="back-icon">←</span>
+          <span class="btn-text" id="back-btn-text-ctrl">Назад в меню</span>
+        </button>
+        <div class="glass-panel placeholder-content-panel">
+          <h2 class="placeholder-title" id="ctrl-view-title">Контролер для ПК</h2>
+          <p class="placeholder-desc" id="ctrl-view-desc">Цей розділ знаходиться в розробці...</p>
+        </div>
+      </section>
+
+      <!-- ==================== PLACEHOLDER VIEW: DRONE BUILDER ==================== -->
+      <section id="builder-view" class="app-view hidden-view">
+        <button id="btn-back-to-menu-build" class="glass-panel back-btn" aria-label="Назад в меню">
+          <span class="back-icon">←</span>
+          <span class="btn-text" id="back-btn-text-build">Назад в меню</span>
+        </button>
+        <div class="glass-panel placeholder-content-panel">
+          <h2 class="placeholder-title" id="build-view-title">Конструктор дрона</h2>
+          <p class="placeholder-desc" id="build-view-desc">Цей розділ знаходиться в розробці...</p>
+        </div>
+      </section>
+
+      <!-- ==================== PLACEHOLDER VIEW: KNOWLEDGE BASE ==================== -->
+      <section id="knowledge-view" class="app-view hidden-view">
+        <button id="btn-back-to-menu-know" class="glass-panel back-btn" aria-label="Назад в меню">
+          <span class="back-icon">←</span>
+          <span class="btn-text" id="back-btn-text-know">Назад в меню</span>
+        </button>
+        <div class="glass-panel placeholder-content-panel">
+          <h2 class="placeholder-title" id="know-view-title">База знань</h2>
+          <p class="placeholder-desc" id="know-view-desc">Цей розділ знаходиться в розробці...</p>
         </div>
       </section>
     </div>

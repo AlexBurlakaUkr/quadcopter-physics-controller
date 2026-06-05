@@ -11,6 +11,15 @@ export const GameConfig = {
   handleSize: 60,    // width/height in px of inner joystick thumb handle
   joystickOffset: 50, // offset in px from screen bottom/sides
 
+  // Physics and Drone parameters (Data-Driven)
+  physics: {
+    gravity: [0, -9.81, 0] as [number, number, number],
+    droneMass: 0.7, // 700g 7-inch drone prototype
+    droneDimensions: [0.5, 0.1, 0.5] as [number, number, number], // width, height, depth
+    maxThrust: 15.0, // max upward force
+    resetPosition: [0, 2.0, 0] as [number, number, number], // starting position above the ground
+  },
+
   // Localization strings
   localization: {
     title: "FPV Academy",
@@ -22,5 +31,12 @@ export const GameConfig = {
     lblYaw: "Yaw",
     lblPitch: "Pitch",
     lblRoll: "Roll",
+    btnBack: "Назад в меню",
+    orientationPrompt: "Будь ласка, поверніть пристрій у горизонтальний режим для польоту.",
+    viewControllerTitle: "Контролер для ПК",
+    viewBuilderTitle: "Конструктор дрона",
+    viewKnowledgeTitle: "База знань",
+    comingSoon: "Цей розділ знаходиться в розробці...",
   }
 };
+
