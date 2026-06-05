@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- SEO Optimization -->
+    <title>FPV Academy — Інтерактивний симулятор дрон-рейсингу та ПК-контролер</title>
+    <meta name="description" content="Опануйте пілотування FPV дрона в FPV Academy. Інтерактивні Mode 2 стіки, навчання, конструктор та підключення пульта керування." />
+    
+    <!-- Google Fonts for Premium Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800;900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Animated background mesh -->
+    <div id="ambient-background" class="ambient-bg">
+      <div class="glow-orb orb-1"></div>
+      <div class="glow-orb orb-2"></div>
+      <div class="glow-orb orb-3"></div>
+    </div>
+
+    <div id="app">
+      <!-- Real-time telemetry debug overlay -->
+      <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
+        <div class="telemetry-item">
+          <span class="label">THR (Throttle):</span>
+          <span id="telemetry-throttle" class="value">0.00</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="label">YAW (Yaw):</span>
+          <span id="telemetry-yaw" class="value">0.00</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="label">PIT (Pitch):</span>
+          <span id="telemetry-pitch" class="value">0.00</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="label">ROL (Roll):</span>
+          <span id="telemetry-roll" class="value">0.00</span>
+        </div>
+      </header>
+
+      <!-- Centered Main Menu UI -->
+      <main id="main-menu" class="glass-panel menu-panel">
+        <div class="menu-header">
+          <div class="logo-accent"></div>
+          <h1 id="app-title">FPV Academy</h1>
+          <p class="subtitle">Симулятор та освітня платформа польотів на квадрокоптерах</p>
+        </div>
+        
+        <nav class="menu-nav" aria-label="Головне меню">
+          <button id="btn-simulator" class="menu-btn primary-glow">
+            <span class="btn-text">Симулятор (3D)</span>
+            <span class="btn-indicator"></span>
+          </button>
+          <button id="btn-controller" class="menu-btn">
+            <span class="btn-text">Контролер для ПК</span>
+            <span class="btn-indicator"></span>
+          </button>
+          <button id="btn-builder" class="menu-btn">
+            <span class="btn-text">Конструктор дрона</span>
+            <span class="btn-indicator"></span>
+          </button>
+          <button id="btn-knowledge" class="menu-btn">
+            <span class="btn-text">База знань</span>
+            <span class="btn-indicator"></span>
+          </button>
+        </nav>
+      </main>
+
+      <!-- Floating Virtual Joysticks (Mode 2) -->
+      <section id="virtual-controller-overlay" aria-label="Віртуальний пульт керування">
+        <!-- Left Joystick (Throttle & Yaw) -->
+        <div id="joystick-left" class="joystick-zone">
+          <div class="joystick-ring">
+            <div class="axis-guide horizontal"></div>
+            <div class="axis-guide vertical"></div>
+            <div id="handle-left" class="joystick-handle">
+              <div class="handle-grip"></div>
+            </div>
+            <span class="joystick-label">THROTTLE / YAW (MODE 2)</span>
+          </div>
+        </div>
+
+        <!-- Right Joystick (Pitch & Roll) -->
+        <div id="joystick-right" class="joystick-zone">
+          <div class="joystick-ring">
+            <div class="axis-guide horizontal"></div>
+            <div class="axis-guide vertical"></div>
+            <div id="handle-right" class="joystick-handle">
+              <div class="handle-grip"></div>
+            </div>
+            <span class="joystick-label">PITCH / ROLL (MODE 2)</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
