@@ -40,45 +40,48 @@ export class SimEngine {
   }
 
   private initGraphics() {
-    // Renderer
+    // Renderer - using window sizes directly
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
       alpha: false,
     });
-    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
-    // Set premium background color matching body bg-darker
-    this.renderer.setClearColor(0x030408, 1);
+    
+    // Clear color set to 0x1a2530 as requested
+    this.renderer.setClearColor(0x1a2530, 1);
 
     // Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x030408, 0.015);
+    this.scene.fog = new THREE.FogExp2(0x1a2530, 0.015);
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(
       60,
-      this.canvas.clientWidth / this.canvas.clientHeight,
+      window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.camera.position.set(0, 3, 6);
+    // Camera positioned at (0, 3, 7) and looking at origin
+    this.camera.position.set(0, 3, 7);
+    this.camera.lookAt(0, 0, 0);
 
-    // Lights
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+    // Ambient light: intensity 0.6
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(this.ambientLight);
 
-    this.dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    this.dirLight.position.set(10, 20, 10);
+    // Directional light: intensity 1.0, position (5, 10, 5)
+    this.dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    this.dirLight.position.set(5, 10, 5);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.width = 1024;
     this.dirLight.shadow.mapSize.height = 1024;
     this.scene.add(this.dirLight);
 
-    // Grid Helper (Premium colors matching accent cyan and purple)
-    // GridHelper(size, divisions, colorCenterLine, colorGrid)
-    this.gridHelper = new THREE.GridHelper(200, 200, 0x00f0ff, 0x1e1233);
+    // Grid Helper: size 20, divisions 20, color 0x888888, 0x444444
+    this.gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
     this.gridHelper.position.y = 0;
     this.scene.add(this.gridHelper);
   }
@@ -90,16 +93,13 @@ export class SimEngine {
     const grav = GameConfig.physics.gravity;
     this.world.gravity.set(grav[0], grav[1], grav[2]);
 
-    // Ground Plane Material
+    // Ground plane
     const groundMaterial = new CANNON.Material('groundMaterial');
-    
-    // Static Ground plane
     const groundBody = new CANNON.Body({
-      mass: 0, // static
+      mass: 0,
       shape: new CANNON.Plane(),
       material: groundMaterial,
     });
-    // Rotate to lie horizontal
     groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     this.world.addBody(groundBody);
   }
@@ -109,7 +109,6 @@ export class SimEngine {
     const mass = GameConfig.physics.droneMass;
     const dims = GameConfig.physics.droneDimensions;
     
-    // Box shape takes half-extents
     const boxShape = new CANNON.Box(
       new CANNON.Vec3(dims[0] / 2, dims[1] / 2, dims[2] / 2)
     );
@@ -118,77 +117,31 @@ export class SimEngine {
     this.droneBody = new CANNON.Body({
       mass: mass,
       shape: boxShape,
-      linearDamping: 0.1, // Air resistance
+      linearDamping: 0.1,
       angularDamping: 0.2,
     });
     this.droneBody.position.set(startPos[0], startPos[1], startPos[2]);
     this.world.addBody(this.droneBody);
 
-    // 2. Create Three.js Visual Mesh Group (Premium minimalist quadcopter prototype)
-    const droneGroup = new THREE.Group();
-
-    // Central core (box shape)
-    const coreGeom = new THREE.BoxGeometry(0.2, 0.05, 0.2);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x00f0ff, // Cyan
-      roughness: 0.1,
-      metalness: 0.8,
-      emissive: 0x003333,
+    // 2. Highly visible Red Box Mesh
+    const geometry = new THREE.BoxGeometry(dims[0], dims[1], dims[2]);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xff0000, // Red
+      roughness: 0.3,
+      metalness: 0.2,
     });
-    const coreMesh = new THREE.Mesh(coreGeom, coreMat);
-    coreMesh.castShadow = true;
-    coreMesh.receiveShadow = true;
-    droneGroup.add(coreMesh);
+    
+    const droneMesh = new THREE.Mesh(geometry, material);
+    droneMesh.castShadow = true;
+    droneMesh.receiveShadow = true;
 
-    // Crossed structural arms
-    const armMat = new THREE.MeshStandardMaterial({
-      color: 0x33333b, // Dark carbon fiber look
-      roughness: 0.4,
-      metalness: 0.6,
-    });
-    const armGeom = new THREE.BoxGeometry(0.55, 0.02, 0.03);
+    this.scene.add(droneMesh);
+    this.droneMesh = droneMesh;
 
-    const arm1 = new THREE.Mesh(armGeom, armMat);
-    arm1.rotation.y = Math.PI / 4;
-    arm1.castShadow = true;
-    droneGroup.add(arm1);
-
-    const arm2 = new THREE.Mesh(armGeom, armMat);
-    arm2.rotation.y = -Math.PI / 4;
-    arm2.castShadow = true;
-    droneGroup.add(arm2);
-
-    // Motors & Props placeholder (Purple Cylinders at corner positions)
-    const motorGeom = new THREE.CylinderGeometry(0.025, 0.025, 0.05, 8);
-    const motorMat = new THREE.MeshStandardMaterial({
-      color: 0xbd00ff, // Purple
-      roughness: 0.2,
-      metalness: 0.8,
-    });
-
-    const motorOffsets = [
-      { x: 0.19, z: 0.19 },
-      { x: -0.19, z: 0.19 },
-      { x: 0.19, z: -0.19 },
-      { x: -0.19, z: -0.19 },
-    ];
-
-    motorOffsets.forEach(offset => {
-      const motor = new THREE.Mesh(motorGeom, motorMat);
-      motor.position.set(offset.x, 0.03, offset.z);
-      motor.castShadow = true;
-      droneGroup.add(motor);
-    });
-
-    this.scene.add(droneGroup);
-    this.droneMesh = droneGroup;
-
-    // Align mesh position with physical body initially
     this.syncMeshWithPhysics();
   }
 
   public updateThrottle(value: number) {
-    // Keep raw throttle value (-1.0 to 1.0)
     this.throttleInput = value;
   }
 
@@ -213,7 +166,6 @@ export class SimEngine {
   public reset() {
     const startPos = GameConfig.physics.resetPosition;
     
-    // Reset Cannon body position & velocities
     this.droneBody.position.set(startPos[0], startPos[1], startPos[2]);
     this.droneBody.velocity.set(0, 0, 0);
     this.droneBody.angularVelocity.set(0, 0, 0);
@@ -224,8 +176,8 @@ export class SimEngine {
   }
 
   private handleResize = () => {
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
@@ -233,17 +185,17 @@ export class SimEngine {
   };
 
   private syncMeshWithPhysics() {
-    // Copy positions from Cannon body to Three mesh
     this.droneMesh.position.copy(this.droneBody.position as any);
     this.droneMesh.quaternion.copy(this.droneBody.quaternion as any);
   }
 
   private updateCameraFollow() {
-    // Camera stays offset relative to the drone
-    this.camera.position.x = this.droneMesh.position.x;
-    this.camera.position.y = this.droneMesh.position.y + 2.0;
-    this.camera.position.z = this.droneMesh.position.z + 4.5;
-    
+    // Camera tracks the drone relative to its position, looking at it
+    this.camera.position.set(
+      this.droneMesh.position.x,
+      this.droneMesh.position.y + 3.0,
+      this.droneMesh.position.z + 7.0
+    );
     this.camera.lookAt(this.droneMesh.position);
   }
 
@@ -252,26 +204,23 @@ export class SimEngine {
 
     this.animationFrameId = requestAnimationFrame(this.loop);
 
-    // Delta Time
     const now = performance.now();
-    const dt = Math.min((now - this.lastTime) / 1000, 0.1); // cap dt to avoid huge physics jumps
+    const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
 
-    // Apply thrust force along local Y-axis based on throttle input
-    // Map throttle input from [-1.0, 1.0] (joystick coordinates) to [0.0, 1.0] (thrust multiplier)
+    // Apply thrust upward along body local Y axis
     const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
     const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
 
     if (forceMagnitude > 0) {
-      // Force applied upward along the local Y-axis of the body, applied at center (0,0,0)
       const forceVec = new CANNON.Vec3(0, forceMagnitude, 0);
       this.droneBody.applyLocalForce(forceVec, new CANNON.Vec3(0, 0, 0));
     }
 
-    // Step Physics World (fixed timestep of 1/60 for stability)
+    // Physics step
     this.world.step(1 / 60, dt);
 
-    // Sync rendering objects with physics engine
+    // Sync mesh with physics
     this.syncMeshWithPhysics();
 
     // Camera follow drone

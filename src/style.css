@@ -586,17 +586,28 @@ body {
 
 /* Fullscreen WebGL Canvas */
 #sim-canvas {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1; /* Sits behind the glassmorphism UI which is z-index 2+ */
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
   display: none;
 }
 
 #sim-canvas.active {
   display: block;
+}
+
+/* Ensure Sim View is transparent and sits above the canvas */
+#sim-view {
+  z-index: 10;
+  background: transparent;
+}
+
+#sim-view.active-view {
+  z-index: 10;
 }
 
 /* SPA View Architecture */
