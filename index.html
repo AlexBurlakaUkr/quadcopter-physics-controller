@@ -59,43 +59,49 @@
 
       <!-- ==================== SIMULATOR VIEW ==================== -->
       <section id="sim-view" class="app-view hidden-view">
-        <!-- Floating Navigation Back Button -->
-        <button id="btn-back-to-menu-sim" class="glass-panel back-btn" aria-label="Назад в меню">
-          <span class="back-icon">←</span>
-          <span class="btn-text" id="back-btn-text-sim">Назад в меню</span>
-        </button>
+        <!-- Top-Left Controls & Telemetry Container -->
+        <div class="sim-controls-top-left">
+          <!-- Floating Navigation Back Button -->
+          <button id="btn-back-to-menu-sim" class="glass-panel back-btn" aria-label="Назад в меню">
+            <span class="back-icon">←</span>
+            <span class="btn-text" id="back-btn-text-sim">Назад в меню</span>
+          </button>
 
-        <!-- Floating Reset Drone Button -->
-        <button id="btn-reset-drone" class="glass-panel reset-btn" aria-label="Скинути дрон">
-          <span class="reset-icon">⟳</span>
-          <span class="btn-text" id="reset-btn-text">Скинути дрон</span>
-        </button>
+          <!-- Real-time telemetry debug overlay -->
+          <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
+            <div class="telemetry-item">
+              <span class="label">THR:</span>
+              <span id="telemetry-throttle" class="value">0.00</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">YAW:</span>
+              <span id="telemetry-yaw" class="value">0.00</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">PIT:</span>
+              <span id="telemetry-pitch" class="value">0.00</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">ROL:</span>
+              <span id="telemetry-roll" class="value">0.00</span>
+            </div>
+          </header>
+        </div>
 
-        <!-- Floating Camera View Mode Switcher Button -->
-        <button id="btn-camera-mode" class="glass-panel camera-btn" aria-label="Змінити камеру">
-          <span class="camera-icon">📷</span>
-          <span class="btn-text" id="camera-btn-text">Камера: LOS</span>
-        </button>
+        <!-- Top-Right Controls Container -->
+        <div class="sim-controls-top-right">
+          <!-- Floating Camera View Mode Switcher Button -->
+          <button id="btn-camera-mode" class="glass-panel camera-btn" aria-label="Змінити камеру">
+            <span class="camera-icon">📷</span>
+            <span class="btn-text" id="camera-btn-text">Камера: LOS</span>
+          </button>
 
-        <!-- Real-time telemetry debug overlay -->
-        <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
-          <div class="telemetry-item">
-            <span class="label">THR:</span>
-            <span id="telemetry-throttle" class="value">0.00</span>
-          </div>
-          <div class="telemetry-item">
-            <span class="label">YAW:</span>
-            <span id="telemetry-yaw" class="value">0.00</span>
-          </div>
-          <div class="telemetry-item">
-            <span class="label">PIT:</span>
-            <span id="telemetry-pitch" class="value">0.00</span>
-          </div>
-          <div class="telemetry-item">
-            <span class="label">ROL:</span>
-            <span id="telemetry-roll" class="value">0.00</span>
-          </div>
-        </header>
+          <!-- Floating Reset Drone Button -->
+          <button id="btn-reset-drone" class="glass-panel reset-btn" aria-label="Скинути дрон">
+            <span class="reset-icon">⟳</span>
+            <span class="btn-text" id="reset-btn-text">Скинути дрон</span>
+          </button>
+        </div>
 
         <!-- Floating Virtual Joysticks (Mode 2) -->
         <div id="virtual-controller-overlay" aria-label="Віртуальний пульт керування">

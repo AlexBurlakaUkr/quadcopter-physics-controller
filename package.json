@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/status-bar": "^8.0.2",
     "cannon-es": "^0.20.0",
     "three": "^0.184.0"
   }

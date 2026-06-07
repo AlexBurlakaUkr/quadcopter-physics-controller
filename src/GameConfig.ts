@@ -18,6 +18,7 @@ export const GameConfig = {
     droneDimensions: [0.5, 0.1, 0.5] as [number, number, number], // width, height, depth
     maxThrust: 15.0, // max upward force
     resetPosition: [0, 2.0, 0] as [number, number, number], // starting position above the ground
+    fixedTimeStep: 1 / 240, // decoupled physics timestep at 240Hz
   },
 
   // Flight Controller & PID Configurations

@@ -22,6 +22,9 @@ export class SimEngine {
   // Clock for frame delta
   private clock!: THREE.Clock;
 
+  // Physics time accumulator
+  private timeAccumulator = 0;
+
   // State & loop
   private animationFrameId: number | null = null;
   private throttleInput = -1.0; // range: -1.0 to 1.0
@@ -457,6 +460,7 @@ export class SimEngine {
     this.pitchController.reset();
     this.rollController.reset();
 
+    this.timeAccumulator = 0;
     this.syncMeshWithPhysics();
     this.updateCameraFollow(true);
   }
@@ -541,77 +545,89 @@ export class SimEngine {
       rotor.rotation.y += dir * rotorSpeed;
     });
 
-    // --- FLIGHT CONTROLLER LOGIC ---
-    const isOnGround = this.droneBody.position.y <= 0.4;
+    // --- FLIGHT CONTROLLER & PHYSICS STEP (Fixed Timestep Accumulator) ---
+    const fixedTimeStep = GameConfig.physics.fixedTimeStep;
+    this.timeAccumulator += deltaTime;
 
-    // Calculate drone's local Up vector
-    const localUp = new THREE.Vector3(0, 1, 0);
-    const droneQuat = new THREE.Quaternion(
-      this.droneBody.quaternion.x,
-      this.droneBody.quaternion.y,
-      this.droneBody.quaternion.z,
-      this.droneBody.quaternion.w
-    );
-    localUp.applyQuaternion(droneQuat);
-
-    // Grounded "Upside Down" Crash Fix
-    if (isOnGround && localUp.y < 0.2) {
-      this.droneBody.angularVelocity.set(0, 0, 0);
-      this.droneBody.linearDamping = 0.9;
-    } else {
-      this.droneBody.linearDamping = 0.3;
+    // Prevent spiral of death from large lags
+    if (this.timeAccumulator > 0.1) {
+      this.timeAccumulator = 0.1;
     }
 
-    // 1. Target angles and rates from inputs
-    const targetPitch = -this.pitchInput * GameConfig.flight.maxPitchAngle;
-    const targetRoll = -this.rollInput * GameConfig.flight.maxRollAngle;
-    const targetYawRate = -this.yawInput * GameConfig.flight.maxYawRate;
+    while (this.timeAccumulator >= fixedTimeStep) {
+      const isOnGround = this.droneBody.position.y <= 0.4;
 
-    // 2. Current orientation (Euler angles)
-    const euler = new THREE.Euler().setFromQuaternion(this.droneMesh.quaternion, 'YXZ');
-    const currentPitch = euler.x;
-    const currentRoll = euler.z;
+      // Calculate drone's local Up vector
+      const localUp = new THREE.Vector3(0, 1, 0);
+      const droneQuat = new THREE.Quaternion(
+        this.droneBody.quaternion.x,
+        this.droneBody.quaternion.y,
+        this.droneBody.quaternion.z,
+        this.droneBody.quaternion.w
+      );
+      localUp.applyQuaternion(droneQuat);
 
-    // 3. Pitch and Roll PID Torques (Ignored if grounded)
-    let pitchTorque = 0;
-    let rollTorque = 0;
+      // Grounded "Upside Down" Crash Fix
+      if (isOnGround && localUp.y < 0.2) {
+        this.droneBody.angularVelocity.set(0, 0, 0);
+        this.droneBody.linearDamping = 0.9;
+      } else {
+        this.droneBody.linearDamping = 0.3;
+      }
 
-    if (!isOnGround) {
-      pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, deltaTime);
-      rollTorque = this.rollController.calculate(targetRoll, currentRoll, deltaTime);
-    } else {
-      this.pitchController.reset();
-      this.rollController.reset();
+      // 1. Target angles and rates from inputs
+      const targetPitch = -this.pitchInput * GameConfig.flight.maxPitchAngle;
+      const targetRoll = -this.rollInput * GameConfig.flight.maxRollAngle;
+      const targetYawRate = -this.yawInput * GameConfig.flight.maxYawRate;
+
+      // 2. Current orientation (Euler angles) from physics body directly
+      const bodyEuler = new THREE.Euler().setFromQuaternion(droneQuat, 'YXZ');
+      const currentPitch = bodyEuler.x;
+      const currentRoll = bodyEuler.z;
+
+      // 3. Pitch and Roll PID Torques (Ignored if grounded)
+      let pitchTorque = 0;
+      let rollTorque = 0;
+
+      if (!isOnGround) {
+        pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, fixedTimeStep);
+        rollTorque = this.rollController.calculate(targetRoll, currentRoll, fixedTimeStep);
+      } else {
+        this.pitchController.reset();
+        this.rollController.reset();
+      }
+
+      // Apply Pitch and Roll local torques to physics body
+      const localTorque = new CANNON.Vec3(pitchTorque, 0, rollTorque);
+      const worldTorque = this.droneBody.vectorToWorldFrame(localTorque);
+      this.droneBody.torque.x += worldTorque.x;
+      this.droneBody.torque.y += worldTorque.y;
+      this.droneBody.torque.z += worldTorque.z;
+
+      // 4. Yaw Control (Direct local Y angular velocity manipulation - rate mode)
+      const localAngularVelocity = this.droneBody.vectorToLocalFrame(this.droneBody.angularVelocity);
+      if (isOnGround) {
+        localAngularVelocity.y = 0;
+      } else {
+        localAngularVelocity.y = targetYawRate;
+      }
+      this.droneBody.angularVelocity.copy(this.droneBody.vectorToWorldFrame(localAngularVelocity));
+
+      // 5. Apply thrust upward along body local Y axis
+      const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
+
+      if (forceMagnitude > 0) {
+        const forceVec = new CANNON.Vec3(0, forceMagnitude, 0);
+        this.droneBody.applyLocalForce(forceVec, new CANNON.Vec3(0, 0, 0));
+      }
+
+      // Step physics
+      this.world.step(fixedTimeStep);
+
+      this.timeAccumulator -= fixedTimeStep;
     }
 
-    // Apply Pitch and Roll local torques to physics body
-    const localTorque = new CANNON.Vec3(pitchTorque, 0, rollTorque);
-    const worldTorque = this.droneBody.vectorToWorldFrame(localTorque);
-    this.droneBody.torque.x += worldTorque.x;
-    this.droneBody.torque.y += worldTorque.y;
-    this.droneBody.torque.z += worldTorque.z;
-
-    // 4. Yaw Control (Direct local Y angular velocity manipulation - rate mode)
-    const localAngularVelocity = this.droneBody.vectorToLocalFrame(this.droneBody.angularVelocity);
-    if (isOnGround) {
-      localAngularVelocity.y = 0;
-    } else {
-      localAngularVelocity.y = targetYawRate;
-    }
-    this.droneBody.angularVelocity.copy(this.droneBody.vectorToWorldFrame(localAngularVelocity));
-
-    // 5. Apply thrust upward along body local Y axis
-    const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
-
-    if (forceMagnitude > 0) {
-      const forceVec = new CANNON.Vec3(0, forceMagnitude, 0);
-      this.droneBody.applyLocalForce(forceVec, new CANNON.Vec3(0, 0, 0));
-    }
-
-    // Physics step - FixedUpdate sync
-    this.world.step(1 / 60, deltaTime, 3);
-
-    // Sync mesh with physics
+    // Sync mesh with physics (direct snap to final physics position, no interpolation noise)
     this.syncMeshWithPhysics();
 
     // Camera follow drone (calculates target and lerps camera position, then calls lookAt)

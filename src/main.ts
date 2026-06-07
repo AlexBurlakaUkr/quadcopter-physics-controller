@@ -1,4 +1,6 @@
 import './style.css';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import { GameConfig } from './GameConfig';
 import { SimEngine } from './SimEngine';
 
@@ -336,6 +338,10 @@ function initLocalization() {
 
 // App Initialization
 function init() {
+  if (Capacitor.isNativePlatform()) {
+    StatusBar.hide().catch(err => console.error('Failed to hide status bar:', err));
+  }
+
   initLocalization();
 
   // Initialize Simulator 3D Engine
