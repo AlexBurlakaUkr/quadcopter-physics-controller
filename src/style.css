@@ -801,3 +801,66 @@ body {
     transform: rotate(0deg);
   }
 }
+
+/* Premium Reset Button */
+.reset-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-purple);
+  box-shadow: 0 4px 15px var(--accent-glow-purple);
+  transform: translateY(-1px);
+}
+
+.reset-btn:active {
+  transform: translateY(1px);
+}
+
+.reset-icon {
+  font-size: 16px;
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.reset-btn:hover .reset-icon {
+  transform: rotate(180deg);
+}
+
+/* Mobile responsive reset button placement */
+@media (max-width: 800px) {
+  .reset-btn {
+    top: 12px;
+    right: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .reset-btn {
+    top: 8px;
+    right: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+}

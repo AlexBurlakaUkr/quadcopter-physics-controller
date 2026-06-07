@@ -292,11 +292,13 @@ function initLocalization() {
   const backCtrl = document.getElementById('back-btn-text-ctrl');
   const backBuild = document.getElementById('back-btn-text-build');
   const backKnow = document.getElementById('back-btn-text-know');
+  const resetBtnText = document.getElementById('reset-btn-text');
 
   if (backSim) backSim.textContent = GameConfig.localization.btnBack;
   if (backCtrl) backCtrl.textContent = GameConfig.localization.btnBack;
   if (backBuild) backBuild.textContent = GameConfig.localization.btnBack;
   if (backKnow) backKnow.textContent = GameConfig.localization.btnBack;
+  if (resetBtnText) resetBtnText.textContent = GameConfig.localization.btnReset;
 
   // Placeholder texts
   const ctrlTitle = document.getElementById('ctrl-view-title');
@@ -421,6 +423,15 @@ function init() {
       }
       switchView(target);
     });
+  });
+
+  // Reset Button handler
+  const resetBtn = document.getElementById('btn-reset-drone');
+  resetBtn?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(25);
+    }
+    simEngine?.reset();
   });
 
   // Orientation and Resize listeners

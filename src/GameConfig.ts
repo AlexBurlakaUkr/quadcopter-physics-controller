@@ -30,11 +30,6 @@ export const GameConfig = {
       ki: 0.0,
       kd: 0.5,
     },
-    pidYaw: {
-      kp: 2.0,
-      ki: 0.0,
-      kd: 0.2,
-    },
     camera: {
       lerpFactor: 0.1, // smooth follow interpolation factor
       offsetY: 3.0,    // vertical camera offset from drone
@@ -54,6 +49,7 @@ export const GameConfig = {
     lblPitch: "Pitch",
     lblRoll: "Roll",
     btnBack: "Назад в меню",
+    btnReset: "Скинути дрон",
     orientationPrompt: "Будь ласка, поверніть пристрій у горизонтальний режим для польоту.",
     viewControllerTitle: "Контролер для ПК",
     viewBuilderTitle: "Конструктор дрона",

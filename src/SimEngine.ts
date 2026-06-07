@@ -31,7 +31,13 @@ export class SimEngine {
   // PID controllers
   private pitchController!: PIDController;
   private rollController!: PIDController;
-  private yawController!: PIDController;
+
+  // 3D Propeller references
+  private droneRotors: THREE.Mesh[] = [];
+
+  // Environmental obstacles
+  private obstacleMeshes: THREE.Object3D[] = [];
+  private obstacleBodies: CANNON.Body[] = [];
 
   constructor(canvasId: string) {
     const canvasEl = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -43,6 +49,7 @@ export class SimEngine {
     this.initGraphics();
     this.initPhysics();
     this.createDrone();
+    this.createEnvironment();
     this.initFlightControllers();
 
     // Listen to resize events
@@ -60,11 +67,6 @@ export class SimEngine {
       config.pidPitchRoll.kp,
       config.pidPitchRoll.ki,
       config.pidPitchRoll.kd
-    );
-    this.yawController = new PIDController(
-      config.pidYaw.kp,
-      config.pidYaw.ki,
-      config.pidYaw.kd
     );
   }
 
@@ -116,14 +118,15 @@ export class SimEngine {
     this.dirLight.shadow.mapSize.height = 1024;
     this.scene.add(this.dirLight);
 
-    // Grid Helper: size 20, divisions 20, color 0x888888, 0x444444
-    this.gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
+    // Grid Helper: size 2000, divisions 200, color 0x888888, 0x444444
+    this.gridHelper = new THREE.GridHelper(2000, 200, 0x888888, 0x444444);
     this.gridHelper.position.y = 0;
     this.scene.add(this.gridHelper);
   }
 
   private initPhysics() {
     this.world = new CANNON.World();
+    this.world.allowSleep = false;
     
     // Set Gravity from GameConfig
     const grav = GameConfig.physics.gravity;
@@ -141,40 +144,134 @@ export class SimEngine {
   }
 
   private createDrone() {
-    // 1. Create Cannon.js Physical Body
+    // 1. Create Cannon.js Physical Body - Spherical Collider (radius ~0.3)
     const mass = GameConfig.physics.droneMass;
-    const dims = GameConfig.physics.droneDimensions;
-    
-    const boxShape = new CANNON.Box(
-      new CANNON.Vec3(dims[0] / 2, dims[1] / 2, dims[2] / 2)
-    );
+    const sphereShape = new CANNON.Sphere(0.3);
 
     const startPos = GameConfig.physics.resetPosition;
     this.droneBody = new CANNON.Body({
       mass: mass,
-      shape: boxShape,
-      linearDamping: 0.1,
-      angularDamping: 0.2,
+      shape: sphereShape,
+      linearDamping: 0.3,
+      angularDamping: 0.3,
     });
     this.droneBody.position.set(startPos[0], startPos[1], startPos[2]);
     this.world.addBody(this.droneBody);
 
-    // 2. Highly visible Red Box Mesh
-    const geometry = new THREE.BoxGeometry(dims[0], dims[1], dims[2]);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xff0000, // Red
-      roughness: 0.3,
-      metalness: 0.2,
-    });
-    
-    const droneMesh = new THREE.Mesh(geometry, material);
-    droneMesh.castShadow = true;
-    droneMesh.receiveShadow = true;
+    // 2. High-Fidelity 3D Drone Model Group
+    const droneGroup = new THREE.Group();
 
-    this.scene.add(droneMesh);
-    this.droneMesh = droneMesh;
+    // Central Body - dark grey box
+    const bodyGeom = new THREE.BoxGeometry(0.3, 0.08, 0.3);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x2d3436,
+      roughness: 0.5,
+      metalness: 0.8
+    });
+    const centralBody = new THREE.Mesh(bodyGeom, bodyMat);
+    centralBody.castShadow = true;
+    centralBody.receiveShadow = true;
+    droneGroup.add(centralBody);
+
+    // Front Indicator - bright green camera lens block on front (negative Z)
+    const cameraGeom = new THREE.BoxGeometry(0.12, 0.06, 0.08);
+    const cameraMat = new THREE.MeshStandardMaterial({
+      color: 0x00ff00,
+      roughness: 0.2,
+      metalness: 0.9,
+      emissive: 0x003300
+    });
+    const frontIndicator = new THREE.Mesh(cameraGeom, cameraMat);
+    frontIndicator.position.set(0, 0, -0.16);
+    droneGroup.add(frontIndicator);
+
+    // 4 Arms diagonal from center
+    const armGeom = new THREE.BoxGeometry(0.04, 0.03, 0.5);
+    const armMat = new THREE.MeshStandardMaterial({
+      color: 0x636e72,
+      roughness: 0.6,
+      metalness: 0.7
+    });
+
+    const arm1 = new THREE.Mesh(armGeom, armMat);
+    arm1.rotation.y = Math.PI / 4;
+    arm1.castShadow = true;
+    droneGroup.add(arm1);
+
+    const arm2 = new THREE.Mesh(armGeom, armMat);
+    arm2.rotation.y = -Math.PI / 4;
+    arm2.castShadow = true;
+    droneGroup.add(arm2);
+
+    // 4 Rotors (Propellers) - flat semi-transparent cylinders
+    const rotorGeom = new THREE.CylinderGeometry(0.12, 0.12, 0.01, 16);
+    const rotorMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.1
+    });
+
+    this.droneRotors = [];
+
+    const rotorPositions = [
+      { x: 0.177, y: 0.03, z: -0.177 },
+      { x: -0.177, y: 0.03, z: -0.177 },
+      { x: -0.177, y: 0.03, z: 0.177 },
+      { x: 0.177, y: 0.03, z: 0.177 }
+    ];
+
+    rotorPositions.forEach((pos) => {
+      const rotor = new THREE.Mesh(rotorGeom, rotorMat);
+      rotor.position.set(pos.x, pos.y, pos.z);
+      rotor.castShadow = true;
+      droneGroup.add(rotor);
+      this.droneRotors.push(rotor);
+    });
+
+    this.scene.add(droneGroup);
+    this.droneMesh = droneGroup;
 
     this.syncMeshWithPhysics();
+  }
+
+  private createEnvironment() {
+    const obstacleCount = 75;
+    const boxGeom = new THREE.BoxGeometry(1.2, 1, 1.2);
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: 0x34495e,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+
+    for (let i = 0; i < obstacleCount; i++) {
+      const height = 5 + Math.random() * 15;
+      let x = -200 + Math.random() * 400;
+      let z = -200 + Math.random() * 400;
+
+      const distFromCenter = Math.sqrt(x * x + z * z);
+      if (distFromCenter < 12) {
+        x += x > 0 ? 12 : -12;
+        z += z > 0 ? 12 : -12;
+      }
+
+      const mesh = new THREE.Mesh(boxGeom, boxMat);
+      mesh.scale.set(1, height, 1);
+      mesh.position.set(x, height / 2, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      this.obstacleMeshes.push(mesh);
+
+      const shape = new CANNON.Box(new CANNON.Vec3(0.6, height / 2, 0.6));
+      const body = new CANNON.Body({
+        mass: 0,
+        shape: shape
+      });
+      body.position.set(x, height / 2, z);
+      this.world.addBody(body);
+      this.obstacleBodies.push(body);
+    }
   }
 
   public updateThrottle(value: number) {
@@ -214,7 +311,6 @@ export class SimEngine {
 
     this.pitchController.reset();
     this.rollController.reset();
-    this.yawController.reset();
 
     this.syncMeshWithPhysics();
     this.updateCameraFollow(true);
@@ -258,7 +354,17 @@ export class SimEngine {
     const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
 
+    // --- PROPELLER ROTATION ANIMATION ---
+    const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
+    const rotorSpeed = 0.08 + normalizedThrottle * 0.8;
+    this.droneRotors.forEach((rotor, index) => {
+      const dir = (index % 2 === 0) ? 1 : -1;
+      rotor.rotation.y += dir * rotorSpeed;
+    });
+
     // --- FLIGHT CONTROLLER LOGIC ---
+    const isOnGround = this.droneBody.position.y <= 0.35;
+
     // 1. Target angles and rates from inputs
     const targetPitch = -this.pitchInput * GameConfig.flight.maxPitchAngle;
     const targetRoll = -this.rollInput * GameConfig.flight.maxRollAngle;
@@ -269,24 +375,35 @@ export class SimEngine {
     const currentPitch = euler.x;
     const currentRoll = euler.z;
 
-    // 3. Current local angular velocity for yaw rate
-    const localAngularVelocity = this.droneBody.vectorToLocalFrame(this.droneBody.angularVelocity);
-    const currentYawRate = localAngularVelocity.y;
+    // 3. Pitch and Roll PID Torques (Ignored if grounded)
+    let pitchTorque = 0;
+    let rollTorque = 0;
 
-    // 4. Calculate PID corrections
-    const pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, dt);
-    const rollTorque = this.rollController.calculate(targetRoll, currentRoll, dt);
-    const yawTorque = this.yawController.calculate(targetYawRate, currentYawRate, dt);
+    if (!isOnGround) {
+      pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, dt);
+      rollTorque = this.rollController.calculate(targetRoll, currentRoll, dt);
+    } else {
+      this.pitchController.reset();
+      this.rollController.reset();
+    }
 
-    // 5. Apply local torque to physics body
-    const localTorque = new CANNON.Vec3(pitchTorque, yawTorque, rollTorque);
+    // Apply Pitch and Roll local torques to physics body
+    const localTorque = new CANNON.Vec3(pitchTorque, 0, rollTorque);
     const worldTorque = this.droneBody.vectorToWorldFrame(localTorque);
     this.droneBody.torque.x += worldTorque.x;
     this.droneBody.torque.y += worldTorque.y;
     this.droneBody.torque.z += worldTorque.z;
 
-    // 6. Apply thrust upward along body local Y axis
-    const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
+    // 4. Yaw Control (Direct local Y angular velocity manipulation - rate mode)
+    const localAngularVelocity = this.droneBody.vectorToLocalFrame(this.droneBody.angularVelocity);
+    if (isOnGround) {
+      localAngularVelocity.y = 0;
+    } else {
+      localAngularVelocity.y = targetYawRate;
+    }
+    this.droneBody.angularVelocity.copy(this.droneBody.vectorToWorldFrame(localAngularVelocity));
+
+    // 5. Apply thrust upward along body local Y axis
     const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
 
     if (forceMagnitude > 0) {
