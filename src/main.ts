@@ -349,8 +349,13 @@ function init() {
       updateTelemetryDisplay();
       checkHapticFeedback();
 
-      // Pass throttle state to SimEngine
-      simEngine?.updateThrottle(y);
+      // Pass all controls to SimEngine
+      simEngine?.updateControls(
+        currentTelemetry.throttle,
+        currentTelemetry.yaw,
+        currentTelemetry.pitch,
+        currentTelemetry.roll
+      );
     }
   });
 
@@ -371,6 +376,14 @@ function init() {
 
       updateTelemetryDisplay();
       checkHapticFeedback();
+
+      // Pass all controls to SimEngine
+      simEngine?.updateControls(
+        currentTelemetry.throttle,
+        currentTelemetry.yaw,
+        currentTelemetry.pitch,
+        currentTelemetry.roll
+      );
     }
   });
 

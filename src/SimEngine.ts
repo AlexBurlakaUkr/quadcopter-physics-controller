@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { GameConfig } from './GameConfig';
+import { PIDController } from './PIDController';
 
 export class SimEngine {
   private canvas: HTMLCanvasElement;
@@ -22,7 +23,15 @@ export class SimEngine {
   private animationFrameId: number | null = null;
   private lastTime = 0;
   private throttleInput = -1.0; // range: -1.0 to 1.0
+  private yawInput = 0.0;
+  private pitchInput = 0.0;
+  private rollInput = 0.0;
   private isActive = false;
+
+  // PID controllers
+  private pitchController!: PIDController;
+  private rollController!: PIDController;
+  private yawController!: PIDController;
 
   constructor(canvasId: string) {
     const canvasEl = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -34,9 +43,36 @@ export class SimEngine {
     this.initGraphics();
     this.initPhysics();
     this.createDrone();
+    this.initFlightControllers();
 
     // Listen to resize events
     window.addEventListener('resize', this.handleResize);
+  }
+
+  private initFlightControllers() {
+    const config = GameConfig.flight;
+    this.pitchController = new PIDController(
+      config.pidPitchRoll.kp,
+      config.pidPitchRoll.ki,
+      config.pidPitchRoll.kd
+    );
+    this.rollController = new PIDController(
+      config.pidPitchRoll.kp,
+      config.pidPitchRoll.ki,
+      config.pidPitchRoll.kd
+    );
+    this.yawController = new PIDController(
+      config.pidYaw.kp,
+      config.pidYaw.ki,
+      config.pidYaw.kd
+    );
+  }
+
+  public updateControls(throttle: number, yaw: number, pitch: number, roll: number) {
+    this.throttleInput = throttle;
+    this.yawInput = yaw;
+    this.pitchInput = pitch;
+    this.rollInput = roll;
   }
 
   private initGraphics() {
@@ -171,8 +207,17 @@ export class SimEngine {
     this.droneBody.angularVelocity.set(0, 0, 0);
     this.droneBody.quaternion.set(0, 0, 0, 1);
 
+    this.throttleInput = -1.0;
+    this.yawInput = 0.0;
+    this.pitchInput = 0.0;
+    this.rollInput = 0.0;
+
+    this.pitchController.reset();
+    this.rollController.reset();
+    this.yawController.reset();
+
     this.syncMeshWithPhysics();
-    this.updateCameraFollow();
+    this.updateCameraFollow(true);
   }
 
   private handleResize = () => {
@@ -189,13 +234,18 @@ export class SimEngine {
     this.droneMesh.quaternion.copy(this.droneBody.quaternion as any);
   }
 
-  private updateCameraFollow() {
-    // Camera tracks the drone relative to its position, looking at it
-    this.camera.position.set(
+  private updateCameraFollow(snap: boolean = false) {
+    const cameraSettings = GameConfig.flight.camera;
+    const targetPosition = new THREE.Vector3(
       this.droneMesh.position.x,
-      this.droneMesh.position.y + 3.0,
-      this.droneMesh.position.z + 7.0
+      this.droneMesh.position.y + cameraSettings.offsetY,
+      this.droneMesh.position.z + cameraSettings.offsetZ
     );
+    if (snap) {
+      this.camera.position.copy(targetPosition);
+    } else {
+      this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
+    }
     this.camera.lookAt(this.droneMesh.position);
   }
 
@@ -208,7 +258,34 @@ export class SimEngine {
     const dt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
 
-    // Apply thrust upward along body local Y axis
+    // --- FLIGHT CONTROLLER LOGIC ---
+    // 1. Target angles and rates from inputs
+    const targetPitch = -this.pitchInput * GameConfig.flight.maxPitchAngle;
+    const targetRoll = -this.rollInput * GameConfig.flight.maxRollAngle;
+    const targetYawRate = -this.yawInput * GameConfig.flight.maxYawRate;
+
+    // 2. Current orientation (Euler angles)
+    const euler = new THREE.Euler().setFromQuaternion(this.droneMesh.quaternion, 'YXZ');
+    const currentPitch = euler.x;
+    const currentRoll = euler.z;
+
+    // 3. Current local angular velocity for yaw rate
+    const localAngularVelocity = this.droneBody.vectorToLocalFrame(this.droneBody.angularVelocity);
+    const currentYawRate = localAngularVelocity.y;
+
+    // 4. Calculate PID corrections
+    const pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, dt);
+    const rollTorque = this.rollController.calculate(targetRoll, currentRoll, dt);
+    const yawTorque = this.yawController.calculate(targetYawRate, currentYawRate, dt);
+
+    // 5. Apply local torque to physics body
+    const localTorque = new CANNON.Vec3(pitchTorque, yawTorque, rollTorque);
+    const worldTorque = this.droneBody.vectorToWorldFrame(localTorque);
+    this.droneBody.torque.x += worldTorque.x;
+    this.droneBody.torque.y += worldTorque.y;
+    this.droneBody.torque.z += worldTorque.z;
+
+    // 6. Apply thrust upward along body local Y axis
     const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
     const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
 
@@ -224,7 +301,7 @@ export class SimEngine {
     this.syncMeshWithPhysics();
 
     // Camera follow drone
-    this.updateCameraFollow();
+    this.updateCameraFollow(false);
 
     // Render Scene
     this.renderer.render(this.scene, this.camera);

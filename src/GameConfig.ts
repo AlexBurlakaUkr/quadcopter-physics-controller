@@ -20,6 +20,28 @@ export const GameConfig = {
     resetPosition: [0, 2.0, 0] as [number, number, number], // starting position above the ground
   },
 
+  // Flight Controller & PID Configurations
+  flight: {
+    maxPitchAngle: 0.6, // radians (~34 degrees)
+    maxRollAngle: 0.6,  // radians (~34 degrees)
+    maxYawRate: 3.0,    // radians/sec target rotation speed
+    pidPitchRoll: {
+      kp: 3.0,
+      ki: 0.0,
+      kd: 0.5,
+    },
+    pidYaw: {
+      kp: 2.0,
+      ki: 0.0,
+      kd: 0.2,
+    },
+    camera: {
+      lerpFactor: 0.1, // smooth follow interpolation factor
+      offsetY: 3.0,    // vertical camera offset from drone
+      offsetZ: 7.0,    // backward camera offset from drone
+    }
+  },
+
   // Localization strings
   localization: {
     title: "FPV Academy",
