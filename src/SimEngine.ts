@@ -29,6 +29,7 @@ export class SimEngine {
   private pitchInput = 0.0;
   private rollInput = 0.0;
   private isActive = false;
+  private cameraMode: 'LOS' | 'CHASE' | 'FPV' = 'LOS';
 
   // PID controllers
   private pitchController!: PIDController;
@@ -409,6 +410,19 @@ export class SimEngine {
     this.throttleInput = value;
   }
 
+  public cycleCameraMode(): 'LOS' | 'CHASE' | 'FPV' {
+    if (this.cameraMode === 'LOS') {
+      this.cameraMode = 'CHASE';
+    } else if (this.cameraMode === 'CHASE') {
+      this.cameraMode = 'FPV';
+    } else {
+      this.cameraMode = 'LOS';
+    }
+    // Snap camera immediately on transition
+    this.updateCameraFollow(true);
+    return this.cameraMode;
+  }
+
   public start() {
     if (this.isActive) return;
     this.isActive = true;
@@ -463,17 +477,53 @@ export class SimEngine {
 
   private updateCameraFollow(snap: boolean = false) {
     const cameraSettings = GameConfig.flight.camera;
-    const targetPosition = new THREE.Vector3(
-      this.droneMesh.position.x,
-      this.droneMesh.position.y + cameraSettings.offsetY,
-      this.droneMesh.position.z + cameraSettings.offsetZ
-    );
-    if (snap) {
+
+    if (this.cameraMode === 'LOS') {
+      const targetPosition = new THREE.Vector3(
+        this.droneMesh.position.x,
+        this.droneMesh.position.y + cameraSettings.offsetY,
+        this.droneMesh.position.z + cameraSettings.offsetZ
+      );
+      if (snap) {
+        this.camera.position.copy(targetPosition);
+      } else {
+        this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
+      }
+      this.camera.lookAt(this.droneMesh.position);
+    } else if (this.cameraMode === 'CHASE') {
+      const localOffset = new THREE.Vector3(
+        cameraSettings.chaseOffset[0],
+        cameraSettings.chaseOffset[1],
+        cameraSettings.chaseOffset[2]
+      );
+      localOffset.applyQuaternion(this.droneMesh.quaternion);
+
+      const targetPosition = new THREE.Vector3()
+        .copy(this.droneMesh.position)
+        .add(localOffset);
+
+      if (snap) {
+        this.camera.position.copy(targetPosition);
+      } else {
+        this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
+      }
+      this.camera.lookAt(this.droneMesh.position);
+    } else if (this.cameraMode === 'FPV') {
+      const localOffset = new THREE.Vector3(
+        cameraSettings.fpvOffset[0],
+        cameraSettings.fpvOffset[1],
+        cameraSettings.fpvOffset[2]
+      );
+      localOffset.applyQuaternion(this.droneMesh.quaternion);
+
+      const targetPosition = new THREE.Vector3()
+        .copy(this.droneMesh.position)
+        .add(localOffset);
+
+      // Instantly copy position and quaternion for rigid FPV camera feel
       this.camera.position.copy(targetPosition);
-    } else {
-      this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
+      this.camera.quaternion.copy(this.droneMesh.quaternion);
     }
-    this.camera.lookAt(this.droneMesh.position);
   }
 
   private loop = () => {

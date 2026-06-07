@@ -34,6 +34,8 @@ export const GameConfig = {
       lerpFactor: 0.1, // smooth follow interpolation factor
       offsetY: 3.0,    // vertical camera offset from drone
       offsetZ: 7.0,    // backward camera offset from drone
+      chaseOffset: [0, 1.5, 4.0] as [number, number, number],
+      fpvOffset: [0, 0.1, -0.2] as [number, number, number]
     }
   },
 
@@ -50,6 +52,9 @@ export const GameConfig = {
     lblRoll: "Roll",
     btnBack: "Назад в меню",
     btnReset: "Скинути дрон",
+    lblCameraLOS: "Камера: LOS",
+    lblCameraChase: "Камера: Chase",
+    lblCameraFPV: "Камера: FPV",
     orientationPrompt: "Будь ласка, поверніть пристрій у горизонтальний режим для польоту.",
     viewControllerTitle: "Контролер для ПК",
     viewBuilderTitle: "Конструктор дрона",

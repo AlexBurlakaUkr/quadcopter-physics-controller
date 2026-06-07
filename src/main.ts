@@ -126,6 +126,12 @@ class VirtualJoystick {
     this.handle.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
+  public reset(initialY?: number) {
+    this.valueX = 0;
+    this.valueY = initialY !== undefined ? initialY : 0.0;
+    this.updateVisualPosition();
+  }
+
   private setupListeners() {
     this.zone.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     window.addEventListener('pointermove', (e) => this.onPointerMove(e));
@@ -206,6 +212,8 @@ function updateTelemetryDisplay() {
 type ViewName = 'main-menu' | 'sim' | 'controller' | 'builder' | 'knowledge';
 let currentView: ViewName = 'main-menu';
 let simEngine: SimEngine | null = null;
+let joystickLeft: VirtualJoystick | null = null;
+let joystickRight: VirtualJoystick | null = null;
 
 function switchView(targetView: ViewName) {
   currentView = targetView;
@@ -320,6 +328,10 @@ function initLocalization() {
   // Orientation prompt
   const orientText = document.getElementById('orientation-text');
   if (orientText) orientText.textContent = GameConfig.localization.orientationPrompt;
+
+  // Camera switcher
+  const cameraBtnText = document.getElementById('camera-btn-text');
+  if (cameraBtnText) cameraBtnText.textContent = GameConfig.localization.lblCameraLOS;
 }
 
 // App Initialization
@@ -334,7 +346,7 @@ function init() {
   }
 
   // Initialize Left Joystick (Throttle - sticky vertical, Yaw - self-centering horizontal)
-  new VirtualJoystick('joystick-left', {
+  joystickLeft = new VirtualJoystick('joystick-left', {
     autoCenterX: true,
     autoCenterY: false, // sticky vertical Throttle
     initialY: -1.0,     // start throttle at bottom
@@ -362,7 +374,7 @@ function init() {
   });
 
   // Initialize Right Joystick (Pitch & Roll - both self-centering)
-  new VirtualJoystick('joystick-right', {
+  joystickRight = new VirtualJoystick('joystick-right', {
     autoCenterX: true,
     autoCenterY: true,
     initialY: 0.0,
@@ -431,7 +443,51 @@ function init() {
     if (typeof navigator.vibrate === 'function') {
       navigator.vibrate(25);
     }
+    // Reset logical telemetry variables
+    previousTelemetry = { ...currentTelemetry };
+    currentTelemetry = {
+      throttle: -1.0, // starts at bottom
+      yaw: 0.0,
+      pitch: 0.0,
+      roll: 0.0
+    };
+    updateTelemetryDisplay();
+
+    // Reset visual joystick knob/handle positions
+    joystickLeft?.reset(-1.0); // snaps to bottom
+    joystickRight?.reset(0.0); // snaps to center
+
+    // Pass cleared controls to SimEngine
+    simEngine?.updateControls(
+      currentTelemetry.throttle,
+      currentTelemetry.yaw,
+      currentTelemetry.pitch,
+      currentTelemetry.roll
+    );
+
+    // Reset physics body
     simEngine?.reset();
+  });
+
+  // Camera View Mode Switcher handler
+  const cameraBtn = document.getElementById('btn-camera-mode');
+  cameraBtn?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    if (simEngine) {
+      const mode = simEngine.cycleCameraMode();
+      const txtEl = document.getElementById('camera-btn-text');
+      if (txtEl) {
+        if (mode === 'LOS') {
+          txtEl.textContent = GameConfig.localization.lblCameraLOS;
+        } else if (mode === 'CHASE') {
+          txtEl.textContent = GameConfig.localization.lblCameraChase;
+        } else if (mode === 'FPV') {
+          txtEl.textContent = GameConfig.localization.lblCameraFPV;
+        }
+      }
+    }
   });
 
   // Orientation and Resize listeners
