@@ -19,9 +19,11 @@ export class SimEngine {
   private droneBody!: CANNON.Body;
   private droneMesh!: THREE.Object3D;
 
+  // Clock for frame delta
+  private clock!: THREE.Clock;
+
   // State & loop
   private animationFrameId: number | null = null;
-  private lastTime = 0;
   private throttleInput = -1.0; // range: -1.0 to 1.0
   private yawInput = 0.0;
   private pitchInput = 0.0;
@@ -78,6 +80,9 @@ export class SimEngine {
   }
 
   private initGraphics() {
+    // Initialize Clock
+    this.clock = new THREE.Clock();
+
     // Renderer - using window sizes directly
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -87,6 +92,7 @@ export class SimEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
     // Clear color set to 0x1a2530 as requested
     this.renderer.setClearColor(0x1a2530, 1);
@@ -110,17 +116,37 @@ export class SimEngine {
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(this.ambientLight);
 
-    // Directional light: intensity 1.0, position (5, 10, 5)
+    // Directional light: intensity 1.0, position (50, 100, 50)
     this.dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    this.dirLight.position.set(5, 10, 5);
+    this.dirLight.position.set(50, 100, 50);
     this.dirLight.castShadow = true;
-    this.dirLight.shadow.mapSize.width = 1024;
-    this.dirLight.shadow.mapSize.height = 1024;
+    this.dirLight.shadow.mapSize.width = 2048;
+    this.dirLight.shadow.mapSize.height = 2048;
+    this.dirLight.shadow.camera.left = -50;
+    this.dirLight.shadow.camera.right = 50;
+    this.dirLight.shadow.camera.top = 50;
+    this.dirLight.shadow.camera.bottom = -50;
+    this.dirLight.shadow.camera.near = 0.5;
+    this.dirLight.shadow.camera.far = 200;
     this.scene.add(this.dirLight);
 
-    // Grid Helper: size 2000, divisions 200, color 0x888888, 0x444444
+    // Ground plane mesh (to receive shadows)
+    const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x1e272e,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.receiveShadow = true;
+    groundMesh.matrixAutoUpdate = false;
+    groundMesh.updateMatrix();
+    this.scene.add(groundMesh);
+
+    // Grid Helper: raised slightly above ground mesh to prevent z-fighting
     this.gridHelper = new THREE.GridHelper(2000, 200, 0x888888, 0x444444);
-    this.gridHelper.position.y = 0;
+    this.gridHelper.position.y = 0.01;
     this.scene.add(this.gridHelper);
   }
 
@@ -183,6 +209,8 @@ export class SimEngine {
     });
     const frontIndicator = new THREE.Mesh(cameraGeom, cameraMat);
     frontIndicator.position.set(0, 0, -0.16);
+    frontIndicator.castShadow = true;
+    frontIndicator.receiveShadow = true;
     droneGroup.add(frontIndicator);
 
     // 4 Arms diagonal from center
@@ -196,11 +224,13 @@ export class SimEngine {
     const arm1 = new THREE.Mesh(armGeom, armMat);
     arm1.rotation.y = Math.PI / 4;
     arm1.castShadow = true;
+    arm1.receiveShadow = true;
     droneGroup.add(arm1);
 
     const arm2 = new THREE.Mesh(armGeom, armMat);
     arm2.rotation.y = -Math.PI / 4;
     arm2.castShadow = true;
+    arm2.receiveShadow = true;
     droneGroup.add(arm2);
 
     // 4 Rotors (Propellers) - flat semi-transparent cylinders
@@ -225,6 +255,7 @@ export class SimEngine {
       const rotor = new THREE.Mesh(rotorGeom, rotorMat);
       rotor.position.set(pos.x, pos.y, pos.z);
       rotor.castShadow = true;
+      rotor.receiveShadow = true;
       droneGroup.add(rotor);
       this.droneRotors.push(rotor);
     });
@@ -236,41 +267,141 @@ export class SimEngine {
   }
 
   private createEnvironment() {
-    const obstacleCount = 75;
-    const boxGeom = new THREE.BoxGeometry(1.2, 1, 1.2);
-    const boxMat = new THREE.MeshStandardMaterial({
+    this.buildCity();
+  }
+
+  private buildCity() {
+    const buildingMat = new THREE.MeshStandardMaterial({
       color: 0x34495e,
-      roughness: 0.4,
-      metalness: 0.6
+      roughness: 0.5,
+      metalness: 0.4
     });
 
-    for (let i = 0; i < obstacleCount; i++) {
-      const height = 5 + Math.random() * 15;
-      let x = -200 + Math.random() * 400;
-      let z = -200 + Math.random() * 400;
+    // Street layouts: place buildings in blocks along rows at X = -50, -20, 20, 50
+    // Leaves a clean central street runway at X = 0, and secondary street corridors.
+    const xPositions = [-50, -20, 20, 50];
+    const zStart = -100;
+    const zEnd = 100;
+    const zSpacing = 25;
 
-      const distFromCenter = Math.sqrt(x * x + z * z);
-      if (distFromCenter < 12) {
-        x += x > 0 ? 12 : -12;
-        z += z > 0 ? 12 : -12;
+    for (const x of xPositions) {
+      for (let z = zStart; z <= zEnd; z += zSpacing) {
+        // Skip safety/spawning area around center origin
+        if (Math.abs(x) < 25 && Math.abs(z) < 25) {
+          continue;
+        }
+
+        // 10% chance to skip building to make it a loose grid
+        if (Math.random() < 0.1) continue;
+
+        const bWidth = 8 + Math.random() * 8;
+        const bDepth = 8 + Math.random() * 8;
+        const bHeight = 15 + Math.random() * 25;
+
+        // Add small organic offsets to building positions within their blocks
+        const offsetX = (Math.random() - 0.5) * 4;
+        const offsetZ = (Math.random() - 0.5) * 6;
+
+        const posX = x + offsetX;
+        const posZ = z + offsetZ;
+
+        const geom = new THREE.BoxGeometry(bWidth, bHeight, bDepth);
+        const mesh = new THREE.Mesh(geom, buildingMat);
+        mesh.position.set(posX, bHeight / 2, posZ);
+
+        // Shadows
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        // Static object performance optimization
+        mesh.matrixAutoUpdate = false;
+        mesh.updateMatrix();
+
+        this.scene.add(mesh);
+        this.obstacleMeshes.push(mesh);
+
+        // Cannon-es static body (mass = 0)
+        const shape = new CANNON.Box(new CANNON.Vec3(bWidth / 2, bHeight / 2, bDepth / 2));
+        const body = new CANNON.Body({
+          mass: 0,
+          shape: shape
+        });
+        body.position.set(posX, bHeight / 2, posZ);
+        this.world.addBody(body);
+        this.obstacleBodies.push(body);
       }
+    }
 
-      const mesh = new THREE.Mesh(boxGeom, boxMat);
-      mesh.scale.set(1, height, 1);
-      mesh.position.set(x, height / 2, z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-      this.obstacleMeshes.push(mesh);
+    // Generate 6 neon arch gates along the central street corridor (at X = 0)
+    const archMat = new THREE.MeshStandardMaterial({
+      color: 0xe84118, // vibrant neon red-orange
+      roughness: 0.3,
+      metalness: 0.8,
+      emissive: 0x220500
+    });
 
-      const shape = new CANNON.Box(new CANNON.Vec3(0.6, height / 2, 0.6));
-      const body = new CANNON.Body({
-        mass: 0,
-        shape: shape
-      });
-      body.position.set(x, height / 2, z);
-      this.world.addBody(body);
-      this.obstacleBodies.push(body);
+    const archZPositions = [-80, -50, -20, 20, 50, 80];
+    const pillarWidth = 1.0;
+    const pillarHeight = 7.0;
+    const pillarDepth = 1.0;
+    const archWidth = 8.0; // span from left to right outer edges
+    const archClearance = 6.0; // space between pillars
+    const topBarHeight = 1.0;
+
+    for (const z of archZPositions) {
+      const leftPillarX = - (archClearance / 2 + pillarWidth / 2); // -3.5
+      const rightPillarX = (archClearance / 2 + pillarWidth / 2);  // 3.5
+
+      // Left Pillar
+      const leftGeom = new THREE.BoxGeometry(pillarWidth, pillarHeight, pillarDepth);
+      const leftMesh = new THREE.Mesh(leftGeom, archMat);
+      leftMesh.position.set(leftPillarX, pillarHeight / 2, z);
+      leftMesh.castShadow = true;
+      leftMesh.receiveShadow = true;
+      leftMesh.matrixAutoUpdate = false;
+      leftMesh.updateMatrix();
+      this.scene.add(leftMesh);
+      this.obstacleMeshes.push(leftMesh);
+
+      const leftShape = new CANNON.Box(new CANNON.Vec3(pillarWidth / 2, pillarHeight / 2, pillarDepth / 2));
+      const leftBody = new CANNON.Body({ mass: 0, shape: leftShape });
+      leftBody.position.set(leftPillarX, pillarHeight / 2, z);
+      this.world.addBody(leftBody);
+      this.obstacleBodies.push(leftBody);
+
+      // Right Pillar
+      const rightGeom = new THREE.BoxGeometry(pillarWidth, pillarHeight, pillarDepth);
+      const rightMesh = new THREE.Mesh(rightGeom, archMat);
+      rightMesh.position.set(rightPillarX, pillarHeight / 2, z);
+      rightMesh.castShadow = true;
+      rightMesh.receiveShadow = true;
+      rightMesh.matrixAutoUpdate = false;
+      rightMesh.updateMatrix();
+      this.scene.add(rightMesh);
+      this.obstacleMeshes.push(rightMesh);
+
+      const rightShape = new CANNON.Box(new CANNON.Vec3(pillarWidth / 2, pillarHeight / 2, pillarDepth / 2));
+      const rightBody = new CANNON.Body({ mass: 0, shape: rightShape });
+      rightBody.position.set(rightPillarX, pillarHeight / 2, z);
+      this.world.addBody(rightBody);
+      this.obstacleBodies.push(rightBody);
+
+      // Top Bar
+      const topGeom = new THREE.BoxGeometry(archWidth, topBarHeight, pillarDepth);
+      const topMesh = new THREE.Mesh(topGeom, archMat);
+      topMesh.position.set(0, pillarHeight + topBarHeight / 2, z);
+      topMesh.castShadow = true;
+      topMesh.receiveShadow = true;
+      topMesh.matrixAutoUpdate = false;
+      topMesh.updateMatrix();
+      this.scene.add(topMesh);
+      this.obstacleMeshes.push(topMesh);
+
+      const topShape = new CANNON.Box(new CANNON.Vec3(archWidth / 2, topBarHeight / 2, pillarDepth / 2));
+      const topBody = new CANNON.Body({ mass: 0, shape: topShape });
+      topBody.position.set(0, pillarHeight + topBarHeight / 2, z);
+      this.world.addBody(topBody);
+      this.obstacleBodies.push(topBody);
     }
   }
 
@@ -283,7 +414,7 @@ export class SimEngine {
     this.isActive = true;
     this.canvas.classList.add('active');
     this.handleResize();
-    this.lastTime = performance.now();
+    this.clock.getDelta(); // Reset clock delta on start
     this.loop();
   }
 
@@ -350,20 +481,36 @@ export class SimEngine {
 
     this.animationFrameId = requestAnimationFrame(this.loop);
 
-    const now = performance.now();
-    const dt = Math.min((now - this.lastTime) / 1000, 0.1);
-    this.lastTime = now;
+    const deltaTime = Math.min(this.clock.getDelta(), 0.1);
 
     // --- PROPELLER ROTATION ANIMATION ---
     const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
-    const rotorSpeed = 0.08 + normalizedThrottle * 0.8;
+    const rotorSpeed = (0.08 + normalizedThrottle * 0.8) * (deltaTime * 60);
     this.droneRotors.forEach((rotor, index) => {
       const dir = (index % 2 === 0) ? 1 : -1;
       rotor.rotation.y += dir * rotorSpeed;
     });
 
     // --- FLIGHT CONTROLLER LOGIC ---
-    const isOnGround = this.droneBody.position.y <= 0.35;
+    const isOnGround = this.droneBody.position.y <= 0.4;
+
+    // Calculate drone's local Up vector
+    const localUp = new THREE.Vector3(0, 1, 0);
+    const droneQuat = new THREE.Quaternion(
+      this.droneBody.quaternion.x,
+      this.droneBody.quaternion.y,
+      this.droneBody.quaternion.z,
+      this.droneBody.quaternion.w
+    );
+    localUp.applyQuaternion(droneQuat);
+
+    // Grounded "Upside Down" Crash Fix
+    if (isOnGround && localUp.y < 0.2) {
+      this.droneBody.angularVelocity.set(0, 0, 0);
+      this.droneBody.linearDamping = 0.9;
+    } else {
+      this.droneBody.linearDamping = 0.3;
+    }
 
     // 1. Target angles and rates from inputs
     const targetPitch = -this.pitchInput * GameConfig.flight.maxPitchAngle;
@@ -380,8 +527,8 @@ export class SimEngine {
     let rollTorque = 0;
 
     if (!isOnGround) {
-      pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, dt);
-      rollTorque = this.rollController.calculate(targetRoll, currentRoll, dt);
+      pitchTorque = this.pitchController.calculate(targetPitch, currentPitch, deltaTime);
+      rollTorque = this.rollController.calculate(targetRoll, currentRoll, deltaTime);
     } else {
       this.pitchController.reset();
       this.rollController.reset();
@@ -411,13 +558,13 @@ export class SimEngine {
       this.droneBody.applyLocalForce(forceVec, new CANNON.Vec3(0, 0, 0));
     }
 
-    // Physics step
-    this.world.step(1 / 60, dt);
+    // Physics step - FixedUpdate sync
+    this.world.step(1 / 60, deltaTime, 3);
 
     // Sync mesh with physics
     this.syncMeshWithPhysics();
 
-    // Camera follow drone
+    // Camera follow drone (calculates target and lerps camera position, then calls lookAt)
     this.updateCameraFollow(false);
 
     // Render Scene
