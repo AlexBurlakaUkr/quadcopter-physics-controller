@@ -1008,12 +1008,21 @@ export class SimEngine {
     rimLight.position.set(-5, 5, -5);
     this.builderScene.add(rimLight);
 
+    // Dedicated drone highlight lights (illuminating the drone assembly at the center)
+    const topPointLight = new THREE.PointLight(0xffffff, 4.0, 8);
+    topPointLight.position.set(0, 3.0, 0.5);
+    this.builderScene.add(topPointLight);
+
+    const frontPointLight = new THREE.PointLight(0xffffff, 3.0, 6);
+    frontPointLight.position.set(0, 1.0, 2.0);
+    this.builderScene.add(frontPointLight);
+
     this.builderFrameGroup = new THREE.Group();
     
     const beamMat = new THREE.MeshStandardMaterial({
-      color: 0x2d3436,
-      roughness: 0.5,
-      metalness: 0.8
+      color: 0x000000,
+      roughness: 0.95,
+      metalness: 0.1
     });
     const beamGeom = new THREE.BoxGeometry(0.04, 0.03, 0.5);
     
@@ -1032,15 +1041,15 @@ export class SimEngine {
     centerPlate.castShadow = true;
     centerPlate.receiveShadow = true;
 
-    // Rectangular flat carbon grey deck (Task 2)
+    // Rectangular flat carbon black deck (Task 2)
     const deckGeom = new THREE.BoxGeometry(BUILDER_CONFIG.deckWidth, BUILDER_CONFIG.deckHeight, BUILDER_CONFIG.deckDepth);
     const deckMat = new THREE.MeshStandardMaterial({
-      color: 0x1e272e,
-      roughness: 0.7,
-      metalness: 0.9
+      color: 0x000000,
+      roughness: 0.95,
+      metalness: 0.1
     });
     const deckMesh = new THREE.Mesh(deckGeom, deckMat);
-    deckMesh.position.set(0, 0, 0);
+    deckMesh.position.set(0, BUILDER_CONFIG.deckYOffset, 0);
     deckMesh.castShadow = true;
     deckMesh.receiveShadow = true;
 
@@ -1073,19 +1082,19 @@ export class SimEngine {
       // Dynamically override slot spacing based on BUILDER_CONFIG (Task 1)
       if (slotData.id === 'camera_front') {
         x = 0;
-        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
         z = -BUILDER_CONFIG.deckDepth / 2;
       } else if (slotData.id === 'fc_top') {
         x = 0;
-        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
         z = -BUILDER_CONFIG.deckDepth * 0.22;
       } else if (slotData.id === 'esc_bottom') {
         x = 0;
-        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
         z = BUILDER_CONFIG.deckDepth * 0.22;
       } else if (slotData.id === 'battery_center') {
         x = 0;
-        y = BUILDER_CONFIG.deckHeight / 2 + 0.03;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.03;
         z = 0;
       }
 

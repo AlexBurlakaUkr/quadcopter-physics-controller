@@ -594,7 +594,6 @@ function init() {
 
   // Info/Help Modal Toggles
   const btnInfo = document.getElementById('btn-info');
-  const btnInfoBuild = document.getElementById('btn-info-build');
   const btnCloseInfo = document.getElementById('btn-close-info');
   const infoModal = document.getElementById('info-modal');
 
@@ -607,7 +606,6 @@ function init() {
   };
 
   btnInfo?.addEventListener('click', openInfoModal);
-  btnInfoBuild?.addEventListener('click', openInfoModal);
 
   btnCloseInfo?.addEventListener('click', () => {
     if (typeof navigator.vibrate === 'function') {
@@ -619,7 +617,6 @@ function init() {
 
   // Settings Modal Toggles
   const btnSettings = document.getElementById('btn-settings');
-  const btnSettingsBuild = document.getElementById('btn-settings-build');
   const btnCloseSettings = document.getElementById('btn-close-settings');
   const settingsModal = document.getElementById('settings-modal');
 
@@ -632,7 +629,6 @@ function init() {
   };
 
   btnSettings?.addEventListener('click', openSettingsModal);
-  btnSettingsBuild?.addEventListener('click', openSettingsModal);
 
   btnCloseSettings?.addEventListener('click', () => {
     if (typeof navigator.vibrate === 'function') {
@@ -836,12 +832,6 @@ function init() {
   const backBuildBtn = document.getElementById('btn-back-to-menu-build');
   backBuildBtn?.addEventListener('pointerdown', preventOrbitConflict);
   backBuildBtn?.addEventListener('mousedown', preventOrbitConflict);
-
-  btnInfoBuild?.addEventListener('pointerdown', preventOrbitConflict);
-  btnInfoBuild?.addEventListener('mousedown', preventOrbitConflict);
-
-  btnSettingsBuild?.addEventListener('pointerdown', preventOrbitConflict);
-  btnSettingsBuild?.addEventListener('mousedown', preventOrbitConflict);
 
   // Orientation and Resize listeners
   window.addEventListener('resize', checkOrientation);
