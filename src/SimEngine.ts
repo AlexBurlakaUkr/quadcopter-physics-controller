@@ -1030,7 +1030,7 @@ export class SimEngine {
     centerPlate.receiveShadow = true;
 
     // Rectangular flat carbon grey deck (Task 2)
-    const deckGeom = new THREE.BoxGeometry(0.8, 0.05, 2.2);
+    const deckGeom = new THREE.BoxGeometry(0.35, 0.04, 1.0);
     const deckMat = new THREE.MeshStandardMaterial({
       color: 0x1e272e,
       roughness: 0.7,

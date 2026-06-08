@@ -1727,6 +1727,68 @@ body {
 
 #builder-view {
   background: radial-gradient(circle at center, var(--bg-dark) 0%, var(--bg-darker) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+#builder-view::before,
+#builder-view::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.25;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#builder-view::before {
+  width: 500px;
+  height: 500px;
+  background: var(--accent-cyan);
+  top: -100px;
+  left: -100px;
+  animation: builder-glow-1 12s infinite alternate ease-in-out;
+}
+
+#builder-view::after {
+  width: 600px;
+  height: 600px;
+  background: var(--accent-purple);
+  bottom: -200px;
+  right: -100px;
+  animation: builder-glow-2 16s infinite alternate ease-in-out;
+}
+
+@keyframes builder-glow-1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    background: var(--accent-cyan);
+  }
+  50% {
+    transform: translate(80px, 50px) scale(1.15);
+    background: #00a8ff;
+  }
+  100% {
+    transform: translate(-50px, -70px) scale(0.9);
+    background: var(--accent-purple);
+  }
+}
+
+@keyframes builder-glow-2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    background: var(--accent-purple);
+  }
+  50% {
+    transform: translate(-90px, 60px) scale(0.85);
+    background: #9c88ff;
+  }
+  100% {
+    transform: translate(70px, -50px) scale(1.1);
+    background: var(--accent-cyan);
+  }
 }
 
 .builder-header-container {
@@ -1833,13 +1895,15 @@ body {
 
 /* Progress Tracker Panel (Task 3) */
 .progress-tracker-panel {
-  align-self: center;
-  margin-top: 12px;
+  position: absolute;
+  top: 104px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
   padding: 8px 20px;
   font-family: var(--font-display);
   font-size: 13px;
@@ -2003,6 +2067,6 @@ body {
     font-size: 10px;
     padding: 6px 12px;
     gap: 8px;
-    margin-top: 6px;
+    top: 130px;
   }
 }
