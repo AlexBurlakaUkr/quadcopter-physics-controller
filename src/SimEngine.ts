@@ -18,6 +18,24 @@ export class SimEngine {
   private world!: CANNON.World;
   private droneBody!: CANNON.Body;
   private droneMesh!: THREE.Object3D;
+  private groundBody!: CANNON.Body;
+
+  // Crash event callback
+  public onCrash: (() => void) | null = null;
+
+  // Active Spark Particles
+  private activeSparks: {
+    points: THREE.Points;
+    velocities: THREE.Vector3[];
+    age: number;
+    maxAge: number;
+  }[] = [];
+
+  // 3D Landing Legs
+  private droneLegs: THREE.Mesh[] = [];
+
+  // Resetting state
+  private isResetting = false;
 
   // Clock for frame delta
   private clock!: THREE.Clock;
@@ -164,13 +182,13 @@ export class SimEngine {
 
     // Ground plane
     const groundMaterial = new CANNON.Material('groundMaterial');
-    const groundBody = new CANNON.Body({
+    this.groundBody = new CANNON.Body({
       mass: 0,
       shape: new CANNON.Plane(),
       material: groundMaterial,
     });
-    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    this.world.addBody(groundBody);
+    this.groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    this.world.addBody(this.groundBody);
   }
 
   private createDrone() {
@@ -199,13 +217,72 @@ export class SimEngine {
 
     // Register crash / collision listener
     this.droneBody.addEventListener('collide', (event: any) => {
+      if (this.isResetting) return;
+
       const targetBody = event.body;
-      if (targetBody && this.obstacleBodies.includes(targetBody)) {
-        console.warn("Drone crashed into obstacle!");
+      const contact = event.contact; // Cannon-es ContactEquation
+
+      if (!targetBody || !contact) return;
+
+      const shapes = this.droneBody.shapes;
+      const isRodContact = contact.si === shapes[1] || contact.si === shapes[2];
+      const isMainBodyContact = contact.si === shapes[0];
+
+      let isCrash = false;
+
+      if (isRodContact) {
+        // Front initiation rods touch anything -> Instant crash!
+        isCrash = true;
+      } else if (isMainBodyContact) {
+        // Main body/props hitting obstacles is a crash (hitting ground rests on legs, so it's safe)
+        if (targetBody !== this.groundBody && this.obstacleBodies.includes(targetBody)) {
+          isCrash = true;
+        }
+      }
+
+      if (isCrash) {
+        console.warn("Drone crashed!");
+        this.isResetting = true;
+
+        if (this.droneMesh) {
+          const leftTipWorld = this.droneMesh.localToWorld(new THREE.Vector3(-0.06, 0.0, -0.50));
+          const rightTipWorld = this.droneMesh.localToWorld(new THREE.Vector3(0.06, 0.0, -0.50));
+
+          this.triggerSparkFX(leftTipWorld);
+          this.triggerSparkFX(rightTipWorld);
+
+          // Hide drone mesh on impact
+          this.droneMesh.visible = false;
+        }
+
         if (typeof navigator.vibrate === 'function') {
           navigator.vibrate([100, 50, 100]); // Strong haptic feedback pattern
         }
-        this.reset();
+
+        // Freeze physical movement instantly at current spot
+        this.droneBody.velocity.set(0, 0, 0);
+        this.droneBody.angularVelocity.set(0, 0, 0);
+        this.droneBody.force.set(0, 0, 0);
+        this.droneBody.torque.set(0, 0, 0);
+
+        // Immediate Input Override
+        this.throttleInput = -1.0;
+        this.yawInput = 0.0;
+        this.pitchInput = 0.0;
+        this.rollInput = 0.0;
+
+        this.pitchController.reset();
+        this.rollController.reset();
+
+        if (this.onCrash) {
+          this.onCrash();
+        }
+
+        // Sequencer delay: remain at impact site for 1.75 seconds
+        setTimeout(() => {
+          this.reset();
+          this.isResetting = false;
+        }, 1750);
       }
     });
 
@@ -283,6 +360,28 @@ export class SimEngine {
       rotor.receiveShadow = true;
       droneGroup.add(rotor);
       this.droneRotors.push(rotor);
+    });
+
+    // 3D Landing Legs Additions
+    const legLength = 0.15;
+    const legRadius = 0.008; // thin cylinder
+    const legGeom = new THREE.CylinderGeometry(legRadius, legRadius, legLength, 8);
+    const legMat = new THREE.MeshStandardMaterial({
+      color: 0x2d3436, // matching body color
+      roughness: 0.5,
+      metalness: 0.8
+    });
+
+    this.droneLegs = [];
+    rotorPositions.forEach((pos) => {
+      const leg = new THREE.Mesh(legGeom, legMat);
+      const defaultY = -0.015 - legLength / 2;
+      leg.position.set(pos.x, defaultY, pos.z);
+      leg.userData = { defaultY: defaultY, currentExtension: 1.0 };
+      leg.castShadow = true;
+      leg.receiveShadow = true;
+      droneGroup.add(leg);
+      this.droneLegs.push(leg);
     });
 
     // FPV Detonation Initiation Rods (3D Mesh Additions)
@@ -506,6 +605,9 @@ export class SimEngine {
 
     this.timeAccumulator = 0;
     this.syncMeshWithPhysics();
+    if (this.droneMesh) {
+      this.droneMesh.visible = true;
+    }
     this.updateCameraFollow();
   }
 
@@ -518,6 +620,58 @@ export class SimEngine {
   private syncMeshWithPhysics() {
     this.droneMesh.position.copy(this.droneBody.position as any);
     this.droneMesh.quaternion.copy(this.droneBody.quaternion as any);
+  }
+
+  private triggerSparkFX(position: THREE.Vector3) {
+    const particleCount = 20;
+    const geometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const velocities: THREE.Vector3[] = [];
+
+    const colorPalette = [
+      new THREE.Color(0xffffff), // White
+      new THREE.Color(0xfff200), // Yellow
+      new THREE.Color(0xff7f50), // Orange
+      new THREE.Color(0xff4500)  // Red-Orange
+    ];
+
+    for (let i = 0; i < particleCount; i++) {
+      positions.push(position.x, position.y, position.z);
+
+      const speed = 1.5 + Math.random() * 3.0;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      const vx = Math.sin(phi) * Math.cos(theta) * speed;
+      const vy = Math.sin(phi) * Math.sin(theta) * speed;
+      const vz = Math.cos(phi) * speed;
+      velocities.push(new THREE.Vector3(vx, vy, vz));
+
+      const randColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      colors.push(randColor.r, randColor.g, randColor.b);
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 0.12,
+      vertexColors: true,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    this.scene.add(points);
+
+    this.activeSparks.push({
+      points,
+      velocities,
+      age: 0,
+      maxAge: 0.5 // 500 ms
+    });
   }
 
   private updateCameraFollow() {
@@ -578,6 +732,54 @@ export class SimEngine {
       rotor.rotation.y += dir * rotorSpeed;
     });
 
+    // --- UPDATE SPARK PARTICLES ---
+    for (let i = this.activeSparks.length - 1; i >= 0; i--) {
+      const spark = this.activeSparks[i];
+      spark.age += deltaTime;
+
+      if (spark.age >= spark.maxAge) {
+        this.scene.remove(spark.points);
+        spark.points.geometry.dispose();
+        (spark.points.material as THREE.Material).dispose();
+        this.activeSparks.splice(i, 1);
+      } else {
+        const positions = spark.points.geometry.attributes.position.array as Float32Array;
+        const opacity = 1.0 - (spark.age / spark.maxAge);
+        (spark.points.material as THREE.PointsMaterial).opacity = opacity;
+
+        for (let j = 0; j < spark.velocities.length; j++) {
+          const vel = spark.velocities[j];
+          positions[j * 3] += vel.x * deltaTime;
+          positions[j * 3 + 1] += vel.y * deltaTime;
+          positions[j * 3 + 2] += vel.z * deltaTime;
+          
+          vel.y -= 3.0 * deltaTime; // gravity
+          vel.multiplyScalar(0.98); // drag
+        }
+        spark.points.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+
+    // --- UPDATE RETRACTABLE LANDING GEAR ---
+    const altitude = this.droneBody.position.y;
+    // Retract if altitude > 0.5 units, otherwise deploy
+    const targetExtension = altitude > 0.5 ? 0.0 : 1.0;
+    const animSpeed = deltaTime / 0.3; // Transition complete in 300ms
+
+    this.droneLegs.forEach((leg) => {
+      let ext = leg.userData.currentExtension;
+      if (ext < targetExtension) {
+        ext = Math.min(targetExtension, ext + animSpeed);
+      } else if (ext > targetExtension) {
+        ext = Math.max(targetExtension, ext - animSpeed);
+      }
+      leg.userData.currentExtension = ext;
+
+      // Smoothly slide position and scale along Y-axis
+      leg.position.y = leg.userData.defaultY * ext;
+      leg.scale.y = ext;
+    });
+
     // --- FLIGHT CONTROLLER & PHYSICS STEP (Fixed Timestep Accumulator) ---
     const fixedTimeStep = GameConfig.physics.fixedTimeStep;
     this.timeAccumulator += deltaTime;
@@ -588,6 +790,15 @@ export class SimEngine {
     }
 
     while (this.timeAccumulator >= fixedTimeStep) {
+      if (this.isResetting) {
+        this.droneBody.velocity.set(0, 0, 0);
+        this.droneBody.angularVelocity.set(0, 0, 0);
+        this.droneBody.force.set(0, 0, 0);
+        this.droneBody.torque.set(0, 0, 0);
+        this.timeAccumulator -= fixedTimeStep;
+        continue;
+      }
+
       const isOnGround = this.droneBody.position.y <= 0.4;
 
       // Calculate drone's local Up vector

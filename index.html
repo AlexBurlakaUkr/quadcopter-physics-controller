@@ -65,7 +65,12 @@
           <button id="btn-back-to-menu-sim" class="glass-panel back-btn" aria-label="Назад в меню">
             <span class="back-icon">✕</span>
           </button>
- 
+
+          <!-- Floating Help/Info Button -->
+          <button id="btn-info" class="glass-panel info-btn" aria-label="Інформація">
+            <span class="info-icon">ℹ</span>
+          </button>
+
           <!-- Real-time telemetry debug overlay -->
           <header id="telemetry-dashboard" class="glass-panel debug-panel" aria-label="Панель телеметрії">
             <div class="telemetry-item">
@@ -86,14 +91,14 @@
             </div>
           </header>
         </div>
- 
+
         <!-- Top-Right Controls Container -->
         <div class="sim-controls-top-right">
           <!-- Floating Camera View Mode Switcher Button -->
           <button id="btn-camera-mode" class="glass-panel camera-btn" aria-label="Змінити камеру">
             <span class="camera-icon">📹</span>
           </button>
- 
+
           <!-- Floating Reset Drone Button -->
           <button id="btn-reset-drone" class="glass-panel reset-btn" aria-label="Скинути дрон">
             <span class="reset-icon">↺</span>
@@ -110,7 +115,6 @@
               <div id="handle-left" class="joystick-handle">
                 <div class="handle-grip"></div>
               </div>
-              <span class="joystick-label">THROTTLE / YAW (MODE 2)</span>
             </div>
           </div>
 
@@ -122,7 +126,51 @@
               <div id="handle-right" class="joystick-handle">
                 <div class="handle-grip"></div>
               </div>
-              <span class="joystick-label">PITCH / ROLL (MODE 2)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info / Help Modal -->
+        <div id="info-modal" class="glass-panel info-modal hidden-modal">
+          <div class="info-modal-content">
+            <button id="btn-close-info" class="close-info-btn" aria-label="Закрити">✕</button>
+            <h2 id="info-title" class="info-modal-title"></h2>
+            <div class="info-modal-body">
+              <div class="gimbal-diagram-container">
+                <!-- Left Gimbal -->
+                <div class="gimbal-card">
+                  <div class="gimbal-label-top" id="lbl-gimbal-left-v"></div>
+                  <div class="gimbal-circle-wrapper">
+                    <div class="axis-arrow vertical-up">▲</div>
+                    <div class="axis-arrow vertical-down">▼</div>
+                    <div class="gimbal-circle">
+                      <div class="axis-line horizontal"></div>
+                      <div class="axis-line vertical"></div>
+                      <div class="gimbal-knob"></div>
+                    </div>
+                    <div class="axis-arrow horizontal-left">◀</div>
+                    <div class="axis-arrow horizontal-right">▶</div>
+                    <div class="gimbal-label-side left-side" id="lbl-gimbal-left-h"></div>
+                  </div>
+                </div>
+
+                <!-- Right Gimbal -->
+                <div class="gimbal-card">
+                  <div class="gimbal-label-top" id="lbl-gimbal-right-v"></div>
+                  <div class="gimbal-circle-wrapper">
+                    <div class="axis-arrow vertical-up">▲</div>
+                    <div class="axis-arrow vertical-down">▼</div>
+                    <div class="gimbal-circle">
+                      <div class="axis-line horizontal"></div>
+                      <div class="axis-line vertical"></div>
+                      <div class="gimbal-knob"></div>
+                    </div>
+                    <div class="axis-arrow horizontal-left">◀</div>
+                    <div class="axis-arrow horizontal-right">▶</div>
+                    <div class="gimbal-label-side right-side" id="lbl-gimbal-right-h"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

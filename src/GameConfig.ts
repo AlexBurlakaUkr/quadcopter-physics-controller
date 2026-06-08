@@ -17,7 +17,7 @@ export const GameConfig = {
     droneMass: 1.3, // 1.3kg 7-inch combat drone
     droneDimensions: [0.5, 0.1, 0.5] as [number, number, number], // width, height, depth
     maxThrust: 15.0, // max upward force
-    resetPosition: [0, 2.0, 0] as [number, number, number], // starting position above the ground
+    resetPosition: [0, 0.25, 0] as [number, number, number], // starting position resting on landing legs
     fixedTimeStep: 1 / 240, // decoupled physics timestep at 240Hz
     linearDamping: 0.1,
     angularDamping: 0.2,
@@ -37,7 +37,7 @@ export const GameConfig = {
       lerpFactor: 0.1, // smooth follow interpolation factor
       offsetY: 3.0,    // vertical camera offset from drone
       offsetZ: 7.0,    // backward camera offset from drone
-      chaseOffset: [0, 1.5, 4.0] as [number, number, number],
+      chaseOffset: [0, 0.8, 3.5] as [number, number, number],
       fpvOffset: [0, 0.12, -0.22] as [number, number, number],
       fpvTilt: 0.20, // tilt camera down by ~11.5 degrees (0.20 rad)
       losOffset: [0, 3.0, 6.0] as [number, number, number]
@@ -65,6 +65,17 @@ export const GameConfig = {
     viewBuilderTitle: "Конструктор дрона",
     viewKnowledgeTitle: "База знань",
     comingSoon: "Цей розділ знаходиться в розробці...",
+    infoTitle: "Режим керування: Mode 2",
+    infoLeftTitle: "Лівий стік (Left Stick)",
+    infoLeftItem1: "Газ (Throttle) — Вертикальна вісь (без автоцентрування)",
+    infoLeftItem2: "Рискання (Yaw) — Горизонтальна вісь (з автоцентруванням)",
+    infoRightTitle: "Правий стік (Right Stick)",
+    infoRightItem1: "Тангаж (Pitch) — Вертикальна вісь (з автоцентруванням)",
+    infoRightItem2: "Крен (Roll) — Горизонтальна вісь (з автоцентруванням)",
+    lblGimbalLeftV: "Throttle (Тяга)",
+    lblGimbalLeftH: "Yaw (Поворот)",
+    lblGimbalRightV: "Pitch (Тангаж)",
+    lblGimbalRightH: "Roll (Крен)",
   }
 };
 

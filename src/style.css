@@ -1015,6 +1015,13 @@ body {
     top: 12px;
     left: 12px;
   }
+  #btn-info {
+    top: 12px;
+    left: 54px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
   .sim-controls-top-right {
     top: 12px;
     right: 12px;
@@ -1036,5 +1043,405 @@ body {
     bottom: 15px;
     padding: 4px 12px;
     gap: 8px;
+  }
+}
+
+/* Premium Info Button */
+.info-btn {
+  position: absolute;
+  top: 24px;
+  left: 79px;
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 20px;
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.info-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 4px 15px var(--accent-glow-cyan);
+  transform: translateY(-1px);
+}
+
+.info-btn:active {
+  transform: translateY(1px);
+}
+
+.info-icon {
+  font-size: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+}
+
+/* Glassmorphism Help Modal */
+.info-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 500px;
+  padding: 28px 24px;
+  background: rgba(10, 12, 22, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.info-modal.hidden-modal {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -45%);
+}
+
+.info-modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.close-info-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.close-info-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-glow-cyan);
+}
+
+.info-modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+  margin: 0;
+}
+
+.info-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-group h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.control-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group li {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  padding-left: 14px;
+  position: relative;
+}
+
+.control-group li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent-cyan);
+}
+
+/* Gimbal Diagrams Layout */
+.gimbal-diagram-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 110px; /* 110px padding on sides to keep absolute labels inside the panel */
+  margin: 0 auto;
+  width: 100%;
+}
+
+.gimbal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+}
+
+.gimbal-circle-wrapper {
+  position: relative;
+  width: 156px; /* 30% upscale from 120px */
+  height: 156px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gimbal-circle {
+  width: 117px; /* 30% upscale from 90px */
+  height: 117px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.6);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gimbal-card:first-child .gimbal-circle {
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: inset 0 0 16px var(--accent-glow-cyan);
+}
+
+.gimbal-card:last-child .gimbal-circle {
+  border-color: rgba(189, 0, 255, 0.3);
+  box-shadow: inset 0 0 16px var(--accent-glow-purple);
+}
+
+.gimbal-circle .axis-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gimbal-circle .axis-line.horizontal {
+  width: 100%;
+  height: 1px;
+}
+
+.gimbal-circle .axis-line.vertical {
+  width: 1px;
+  height: 100%;
+}
+
+.gimbal-knob {
+  width: 18px; /* 30% upscale from 14px */
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+  z-index: 5;
+}
+
+.gimbal-card:first-child .gimbal-knob {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 14px var(--accent-cyan);
+}
+
+.gimbal-card:last-child .gimbal-knob {
+  background: var(--accent-purple);
+  box-shadow: 0 0 14px var(--accent-purple);
+}
+
+/* Axis Arrows */
+.axis-arrow {
+  position: absolute;
+  font-size: 13px; /* 30% upscale from 10px */
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.gimbal-card:first-child .axis-arrow {
+  color: rgba(0, 240, 255, 0.6);
+}
+
+.gimbal-card:last-child .axis-arrow {
+  color: rgba(189, 0, 255, 0.6);
+}
+
+.axis-arrow.vertical-up {
+  top: 0;
+  animation: float-up 1.5s infinite ease-in-out;
+}
+
+.axis-arrow.vertical-down {
+  bottom: 0;
+  animation: float-down 1.5s infinite ease-in-out;
+}
+
+.axis-arrow.horizontal-left {
+  left: 0;
+  animation: float-left 1.5s infinite ease-in-out;
+}
+
+.axis-arrow.horizontal-right {
+  right: 0;
+  animation: float-right 1.5s infinite ease-in-out;
+}
+
+@keyframes float-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes float-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+@keyframes float-left {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-4px); }
+}
+
+@keyframes float-right {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+/* Gimbal Labels & Spacers */
+.gimbal-label-top {
+  font-family: var(--font-display);
+  font-size: 14px; /* 30% upscale from 11px */
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.gimbal-label-side {
+  position: absolute;
+  font-family: var(--font-body);
+  font-size: 14px; /* 30% upscale from 11px */
+  font-weight: 500;
+  color: var(--text-primary);
+  width: 120px; /* enough space for labels */
+  white-space: nowrap;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.gimbal-label-side.left-side {
+  right: 172px; /* 156px width + 16px gap */
+  text-align: right;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+}
+
+.gimbal-label-side.right-side {
+  left: 172px; /* 156px width + 16px gap */
+  text-align: left;
+  text-shadow: 0 0 8px rgba(189, 0, 255, 0.2);
+}
+
+.gimbal-card:first-child .gimbal-label-top {
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+}
+
+.gimbal-card:last-child .gimbal-label-top {
+  text-shadow: 0 0 8px rgba(189, 0, 255, 0.2);
+}
+
+/* Main Modal upscales */
+.info-modal {
+  width: 90% !important;
+  max-width: 800px !important; /* increased to 800px to accommodate absolute labels */
+}
+
+.info-modal-title {
+  font-size: 24px !important; /* 30% upscale from 18px */
+}
+
+/* Adjustments for smaller heights / landscape modes on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .info-modal {
+    max-width: 500px !important;
+    padding: 12px 16px;
+  }
+  .info-modal-content {
+    gap: 4px;
+  }
+  .info-modal-title {
+    font-size: 16px !important;
+    padding-bottom: 4px;
+  }
+  .gimbal-diagram-container {
+    gap: 12px;
+    padding: 4px 70px;
+  }
+  .gimbal-card {
+    gap: 6px;
+  }
+  .gimbal-circle-wrapper {
+    width: 96px;
+    height: 96px;
+  }
+  .gimbal-circle {
+    width: 70px;
+    height: 70px;
+  }
+  .gimbal-knob {
+    width: 12px;
+    height: 12px;
+  }
+  .axis-arrow {
+    font-size: 10px;
+  }
+  .gimbal-label-top {
+    font-size: 11px;
+  }
+  .gimbal-label-side {
+    font-size: 11px;
+    width: 90px;
+  }
+  .gimbal-label-side.left-side {
+    right: 104px; /* 96px + 8px gap */
+  }
+  .gimbal-label-side.right-side {
+    left: 104px; /* 96px + 8px gap */
   }
 }

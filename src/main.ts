@@ -334,6 +334,19 @@ function initLocalization() {
   // Camera switcher
   const cameraBtnText = document.getElementById('camera-btn-text');
   if (cameraBtnText) cameraBtnText.textContent = GameConfig.localization.lblCameraLOS;
+
+  // Help Modal translations
+  const infoTitle = document.getElementById('info-title');
+  const lblGimbalLeftV = document.getElementById('lbl-gimbal-left-v');
+  const lblGimbalLeftH = document.getElementById('lbl-gimbal-left-h');
+  const lblGimbalRightV = document.getElementById('lbl-gimbal-right-v');
+  const lblGimbalRightH = document.getElementById('lbl-gimbal-right-h');
+
+  if (infoTitle) infoTitle.textContent = GameConfig.localization.infoTitle;
+  if (lblGimbalLeftV) lblGimbalLeftV.textContent = GameConfig.localization.lblGimbalLeftV;
+  if (lblGimbalLeftH) lblGimbalLeftH.textContent = GameConfig.localization.lblGimbalLeftH;
+  if (lblGimbalRightV) lblGimbalRightV.textContent = GameConfig.localization.lblGimbalRightV;
+  if (lblGimbalRightH) lblGimbalRightH.textContent = GameConfig.localization.lblGimbalRightH;
 }
 
 // App Initialization
@@ -347,6 +360,21 @@ function init() {
   // Initialize Simulator 3D Engine
   try {
     simEngine = new SimEngine('sim-canvas');
+    simEngine.onCrash = () => {
+      // Reset logical telemetry variables
+      previousTelemetry = { ...currentTelemetry };
+      currentTelemetry = {
+        throttle: -1.0, // starts at bottom
+        yaw: 0.0,
+        pitch: 0.0,
+        roll: 0.0
+      };
+      updateTelemetryDisplay();
+
+      // Reset visual joystick knob/handle positions
+      joystickLeft?.reset(-1.0); // snaps to bottom
+      joystickRight?.reset(0.0); // snaps to center
+    };
   } catch (err) {
     console.error('Failed to initialize 3D SimEngine:', err);
   }
@@ -423,7 +451,7 @@ function init() {
       }
       if (btnId === 'btn-simulator') {
         if (document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen().catch(e => console.log(e));
+          document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(e => console.log(e));
         }
       }
       switchView(viewName);
@@ -448,9 +476,32 @@ function init() {
         if (document.exitFullscreen) {
           document.exitFullscreen().catch(e => console.log(e));
         }
+        const infoModal = document.getElementById('info-modal');
+        infoModal?.classList.add('hidden-modal');
       }
       switchView(target);
     });
+  });
+
+  // Info/Help Modal Toggles
+  const btnInfo = document.getElementById('btn-info');
+  const btnCloseInfo = document.getElementById('btn-close-info');
+  const infoModal = document.getElementById('info-modal');
+
+  btnInfo?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    infoModal?.classList.remove('hidden-modal');
+    simEngine?.stop();
+  });
+
+  btnCloseInfo?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    infoModal?.classList.add('hidden-modal');
+    simEngine?.start();
   });
 
   // Reset Button handler
