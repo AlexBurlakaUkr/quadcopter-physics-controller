@@ -1726,7 +1726,7 @@ body {
 }
 
 #builder-view {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: radial-gradient(circle at center, var(--bg-dark) 0%, var(--bg-darker) 100%);
 }
 
 .builder-header-container {
@@ -1815,11 +1815,12 @@ body {
 
 .inventory-panel {
   display: flex;
+  justify-content: space-evenly;
   gap: 16px;
   padding: 16px 24px;
   overflow-x: auto;
-  max-width: 600px;
-  width: 100%;
+  width: 95vw;
+  max-width: 95vw;
   background: rgba(10, 15, 30, 0.6);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1828,6 +1829,63 @@ body {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Progress Tracker Panel (Task 3) */
+.progress-tracker-panel {
+  align-self: center;
+  margin-top: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(10, 15, 30, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.tracker-divider {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* Toast Notification (Task 4) */
+.toast-notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: rgba(8, 9, 20, 0.95);
+  border: 1px solid var(--accent-purple);
+  box-shadow: 0 0 30px var(--accent-glow-purple);
+  color: var(--text-primary);
+  padding: 18px 32px;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  z-index: 999;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-notification.visible-toast {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.toast-notification.hidden-toast {
+  display: none;
 }
 
 .inventory-panel::-webkit-scrollbar {
@@ -1939,5 +1997,12 @@ body {
 
   .item-name {
     font-size: 12px;
+  }
+
+  .progress-tracker-panel {
+    font-size: 10px;
+    padding: 6px 12px;
+    gap: 8px;
+    margin-top: 6px;
   }
 }

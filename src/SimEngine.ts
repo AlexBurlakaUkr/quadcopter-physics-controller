@@ -24,6 +24,8 @@ export class SimEngine {
   private raycaster = new THREE.Raycaster();
   private dragPlane = new THREE.Plane();
   private assembledParts: { slotId: string; mesh: THREE.Object3D }[] = [];
+  private attemptedBlockedSlot: THREE.Mesh | null = null;
+  private toastTimeout: number | null = null;
 
   // Lights
   private ambientLight!: THREE.AmbientLight;
@@ -1027,9 +1029,22 @@ export class SimEngine {
     centerPlate.castShadow = true;
     centerPlate.receiveShadow = true;
 
+    // Rectangular flat carbon grey deck (Task 2)
+    const deckGeom = new THREE.BoxGeometry(0.8, 0.05, 2.2);
+    const deckMat = new THREE.MeshStandardMaterial({
+      color: 0x1e272e,
+      roughness: 0.7,
+      metalness: 0.9
+    });
+    const deckMesh = new THREE.Mesh(deckGeom, deckMat);
+    deckMesh.position.set(0, 0, 0);
+    deckMesh.castShadow = true;
+    deckMesh.receiveShadow = true;
+
     this.builderFrameGroup.add(beam1);
     this.builderFrameGroup.add(beam2);
     this.builderFrameGroup.add(centerPlate);
+    this.builderFrameGroup.add(deckMesh);
     this.builderScene.add(this.builderFrameGroup);
 
     const slotGeom = new THREE.SphereGeometry(0.045, 16, 16);
@@ -1079,6 +1094,7 @@ export class SimEngine {
       this.canvas.style.zIndex = '4'; // Lift canvas above builder-view gradient background
       this.builderCamera.aspect = window.innerWidth / window.innerHeight;
       this.builderCamera.updateProjectionMatrix();
+      this.updateAssemblyProgressTracker();
     } else {
       this.renderer.setClearColor(GameConfig.environment.fogColor, 1); // Solid clear color
       this.canvas.style.zIndex = '0'; // Restore canvas z-index
@@ -1245,6 +1261,7 @@ export class SimEngine {
 
     let closestSlot: THREE.Mesh | null = null;
     let minDistance = GameConfig.builder.snapThreshold;
+    this.attemptedBlockedSlot = null;
 
     this.builderSlots.forEach(slot => {
       if (slot.visible && slot.userData.type === this.draggedItemType && !slot.userData.occupied) {
@@ -1253,8 +1270,28 @@ export class SimEngine {
 
         const distance = this.draggedItem!.position.distanceTo(slotWorldPos);
         if (distance < minDistance) {
-          minDistance = distance;
-          closestSlot = slot;
+          // Check mechanical assembly dependencies (Task 4)
+          let dependencyMet = true;
+          if (this.draggedItemType === 'propeller') {
+            const suffix = slot.userData.id.split('_')[1];
+            const motorSlot = this.builderSlots.find(s => s.userData.id === `motor_${suffix}`);
+            if (!motorSlot || !motorSlot.userData.occupied) {
+              dependencyMet = false;
+            }
+          } else if (this.draggedItemType === 'battery') {
+            const fcSlot = this.builderSlots.find(s => s.userData.type === 'fc');
+            const escSlot = this.builderSlots.find(s => s.userData.type === 'esc');
+            if (!fcSlot || !fcSlot.userData.occupied || !escSlot || !escSlot.userData.occupied) {
+              dependencyMet = false;
+            }
+          }
+
+          if (dependencyMet) {
+            minDistance = distance;
+            closestSlot = slot;
+          } else {
+            this.attemptedBlockedSlot = slot;
+          }
         }
 
         let slotColor = 0x00ff00;
@@ -1292,6 +1329,23 @@ export class SimEngine {
       const localPos = this.snappedSlot.position.clone();
       this.builderScene.remove(this.draggedItem);
       this.draggedItem.position.copy(localPos);
+      
+      // Update mesh colors when dropped (Task 2)
+      this.draggedItem.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          if (this.draggedItemType === 'propeller') {
+            mat.color.setHex(0x88ff00); // Bright Lime Green
+            mat.opacity = 1.0;
+            mat.transparent = false;
+          } else if (this.draggedItemType === 'motor') {
+            mat.color.setHex(0x00008b); // Dark Blue
+          } else if (this.draggedItemType === 'fc' || this.draggedItemType === 'esc') {
+            mat.color.setHex(0x008000); // Flat Green
+          }
+        }
+      });
+
       this.builderFrameGroup.add(this.draggedItem);
 
       this.assembledParts.push({
@@ -1304,7 +1358,19 @@ export class SimEngine {
       if (typeof navigator.vibrate === 'function') {
         navigator.vibrate(20);
       }
+
+      this.updateAssemblyProgressTracker();
     } else {
+      // Trigger toast popup if snap was blocked by dependency check (Task 4)
+      if (this.attemptedBlockedSlot) {
+        const loc = GameConfig.localization;
+        if (this.draggedItemType === 'propeller') {
+          this.showToast(loc.toastNeedMotor || "Спочатку встановіть двигун!");
+        } else if (this.draggedItemType === 'battery') {
+          this.showToast(loc.toastNeedElectronics || "Спочатку встановіть електроніку (FC та ESC)!");
+        }
+      }
+
       this.builderScene.remove(this.draggedItem);
       this.disposeObject3D(this.draggedItem);
     }
@@ -1346,5 +1412,62 @@ export class SimEngine {
     if (this.builderControls) {
       this.builderControls.reset();
     }
+
+    this.updateAssemblyProgressTracker();
+  }
+
+  private showToast(message: string) {
+    const toast = document.getElementById('toast-notification');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.remove('hidden-toast');
+    toast.classList.add('visible-toast');
+
+    if (this.toastTimeout) {
+      clearTimeout(this.toastTimeout);
+    }
+
+    this.toastTimeout = window.setTimeout(() => {
+      toast.classList.remove('visible-toast');
+      this.toastTimeout = window.setTimeout(() => {
+        toast.classList.add('hidden-toast');
+      }, 300);
+    }, 2000);
+  }
+
+  private updateAssemblyProgressTracker() {
+    const counts = {
+      motor: 0,
+      propeller: 0,
+      fc: 0,
+      esc: 0,
+      camera: 0,
+      battery: 0
+    };
+
+    this.builderSlots.forEach(slot => {
+      if (slot.userData.occupied) {
+        const type = slot.userData.type as keyof typeof counts;
+        if (counts[type] !== undefined) {
+          counts[type]++;
+        }
+      }
+    });
+
+    const loc = GameConfig.localization;
+    const motorsEl = document.getElementById('tracker-motors');
+    const propsEl = document.getElementById('tracker-propellers');
+    const fcEl = document.getElementById('tracker-fc');
+    const escEl = document.getElementById('tracker-esc');
+    const cameraEl = document.getElementById('tracker-camera');
+    const batteryEl = document.getElementById('tracker-battery');
+
+    if (motorsEl) motorsEl.textContent = `${loc.trackerMotors}: ${counts.motor}/4`;
+    if (propsEl) propsEl.textContent = `${loc.trackerPropellers}: ${counts.propeller}/4`;
+    if (fcEl) fcEl.textContent = `${loc.trackerFC}: ${counts.fc}/1`;
+    if (escEl) escEl.textContent = `${loc.trackerESC}: ${counts.esc}/1`;
+    if (cameraEl) cameraEl.textContent = `${loc.trackerCamera}: ${counts.camera}/1`;
+    if (batteryEl) batteryEl.textContent = `${loc.trackerBattery}: ${counts.battery}/1`;
   }
 }
