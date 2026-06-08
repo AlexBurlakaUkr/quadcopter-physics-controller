@@ -18,12 +18,12 @@ export class SimEngine {
   private builderControls!: OrbitControls;
   private builderFrameGroup!: THREE.Group;
   private builderSlots: THREE.Mesh[] = [];
-  private draggedItem: THREE.Mesh | null = null;
-  private draggedItemType: 'motor' | 'battery' | null = null;
+  private draggedItem: THREE.Object3D | null = null;
+  private draggedItemType: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | null = null;
   private snappedSlot: THREE.Mesh | null = null;
   private raycaster = new THREE.Raycaster();
   private dragPlane = new THREE.Plane();
-  private assembledParts: { slotId: string; mesh: THREE.Mesh }[] = [];
+  private assembledParts: { slotId: string; mesh: THREE.Object3D }[] = [];
 
   // Lights
   private ambientLight!: THREE.AmbientLight;
@@ -131,7 +131,7 @@ export class SimEngine {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
-      alpha: false,
+      alpha: true,
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -981,27 +981,27 @@ export class SimEngine {
     );
     this.builderCamera.position.set(0, 1.0, 1.8);
 
-    this.builderControls = new OrbitControls(this.builderCamera, this.renderer.domElement);
+    const builderViewEl = document.getElementById('builder-view') || this.renderer.domElement;
+    this.builderControls = new OrbitControls(this.builderCamera, builderViewEl);
     this.builderControls.enableDamping = true;
     this.builderControls.dampingFactor = 0.05;
     this.builderControls.minDistance = 0.5;
     this.builderControls.maxDistance = 5.0;
     this.builderControls.target.set(0, 0, 0);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    // Studio Lighting
+    const ambient = new THREE.AmbientLight(0xffffff, 0.9);
     this.builderScene.add(ambient);
 
-    const light1 = new THREE.PointLight(0x00f0ff, 1.8, 10);
-    light1.position.set(-3, 3, -3);
-    this.builderScene.add(light1);
+    // Front-top-left key light
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(5, 10, 5);
+    this.builderScene.add(keyLight);
 
-    const light2 = new THREE.PointLight(0xff00ff, 1.8, 10);
-    light2.position.set(3, 3, -3);
-    this.builderScene.add(light2);
-
-    const light3 = new THREE.PointLight(0xffffff, 2.0, 15);
-    light3.position.set(0, 5, 5);
-    this.builderScene.add(light3);
+    // Behind rim light
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    rimLight.position.set(-5, 5, -5);
+    this.builderScene.add(rimLight);
 
     this.builderFrameGroup = new THREE.Group();
     
@@ -1035,8 +1035,14 @@ export class SimEngine {
     const slotGeom = new THREE.SphereGeometry(0.045, 16, 16);
     
     GameConfig.builder.slots.forEach(slotData => {
+      let slotColor = 0x00ff00;
+      if (slotData.type === 'camera') slotColor = 0x0984e3;
+      else if (slotData.type === 'esc') slotColor = 0x6c5ce7;
+      else if (slotData.type === 'fc') slotColor = 0xe17055;
+      else if (slotData.type === 'propeller') slotColor = 0x00d2d3;
+
       const slotMat = new THREE.MeshBasicMaterial({
-        color: 0x00ff00,
+        color: slotColor,
         transparent: true,
         opacity: 0.3,
         wireframe: true
@@ -1069,56 +1075,148 @@ export class SimEngine {
   public setViewMode(mode: 'simulator' | 'builder') {
     this.viewMode = mode;
     if (mode === 'builder') {
-      this.renderer.setClearColor(0x0a0f1d, 1);
+      this.renderer.setClearColor(0x000000, 0); // Transparent black clear color
+      this.canvas.style.zIndex = '4'; // Lift canvas above builder-view gradient background
       this.builderCamera.aspect = window.innerWidth / window.innerHeight;
       this.builderCamera.updateProjectionMatrix();
     } else {
-      this.renderer.setClearColor(GameConfig.environment.fogColor, 1);
+      this.renderer.setClearColor(GameConfig.environment.fogColor, 1); // Solid clear color
+      this.canvas.style.zIndex = '0'; // Restore canvas z-index
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
     }
   }
 
-  public startDragging(type: 'motor' | 'battery', clientX: number, clientY: number) {
+  public startDragging(type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller', clientX: number, clientY: number) {
     if (this.draggedItem) {
       this.builderScene.remove(this.draggedItem);
+      this.disposeObject3D(this.draggedItem);
     }
 
     if (this.builderControls) {
       this.builderControls.enabled = false;
     }
 
-    let geom: THREE.BufferGeometry;
-    let mat: THREE.Material;
+    let itemObject: THREE.Object3D;
 
     if (type === 'motor') {
-      geom = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
-      mat = new THREE.MeshStandardMaterial({
+      const geom = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
+      const mat = new THREE.MeshStandardMaterial({
         color: 0x00f0ff,
         roughness: 0.3,
         metalness: 0.8
       });
-    } else {
-      geom = new THREE.BoxGeometry(0.08, 0.05, 0.15);
-      mat = new THREE.MeshStandardMaterial({
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      itemObject = mesh;
+    } else if (type === 'battery') {
+      const geom = new THREE.BoxGeometry(0.08, 0.05, 0.15);
+      const mat = new THREE.MeshStandardMaterial({
         color: 0xe84118,
         roughness: 0.5,
         metalness: 0.2
       });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      itemObject = mesh;
+    } else if (type === 'camera') {
+      const cameraGroup = new THREE.Group();
+      // Casing
+      const casingGeom = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+      const casingMat = new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.4 });
+      const casingMesh = new THREE.Mesh(casingGeom, casingMat);
+      casingMesh.castShadow = true;
+      casingMesh.receiveShadow = true;
+      cameraGroup.add(casingMesh);
+      // Lens
+      const lensGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.03, 16);
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.1, metalness: 0.9 });
+      const lensMesh = new THREE.Mesh(lensGeom, lensMat);
+      lensMesh.rotation.x = Math.PI / 2; // Point forward
+      lensMesh.position.set(0, 0, -0.035);
+      lensMesh.castShadow = true;
+      lensMesh.receiveShadow = true;
+      cameraGroup.add(lensMesh);
+      itemObject = cameraGroup;
+    } else if (type === 'esc') {
+      const geom = new THREE.BoxGeometry(0.07, 0.008, 0.07);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.8, metalness: 0.1 });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      itemObject = mesh;
+    } else if (type === 'fc') {
+      const fcGroup = new THREE.Group();
+      const fcGeom = new THREE.BoxGeometry(0.07, 0.008, 0.07);
+      const fcMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, roughness: 0.7, metalness: 0.2 });
+      const fcMesh = new THREE.Mesh(fcGeom, fcMat);
+      fcMesh.castShadow = true;
+      fcMesh.receiveShadow = true;
+      fcGroup.add(fcMesh);
+      // Tiny pins
+      const pinGeom = new THREE.CylinderGeometry(0.003, 0.003, 0.015, 8);
+      const pinMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3, metalness: 0.9 });
+      const pinOffsets = [
+        [-0.025, 0.01, -0.025],
+        [0.025, 0.01, -0.025],
+        [-0.025, 0.01, 0.025],
+        [0.025, 0.01, 0.025]
+      ];
+      pinOffsets.forEach(offset => {
+        const pin = new THREE.Mesh(pinGeom, pinMat);
+        pin.position.set(offset[0], offset[1], offset[2]);
+        pin.castShadow = true;
+        pin.receiveShadow = true;
+        fcGroup.add(pin);
+      });
+      itemObject = fcGroup;
+    } else {
+      // type === 'propeller'
+      const propGroup = new THREE.Group();
+      // Hub
+      const hubGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.012, 16);
+      const hubMat = new THREE.MeshStandardMaterial({ color: 0xd63031, roughness: 0.3, metalness: 0.8 });
+      const hubMesh = new THREE.Mesh(hubGeom, hubMat);
+      hubMesh.castShadow = true;
+      hubMesh.receiveShadow = true;
+      propGroup.add(hubMesh);
+      // 3 Blades (spaced at 120 degrees)
+      const bladeGeom = new THREE.BoxGeometry(0.02, 0.002, 0.12);
+      const bladeMat = new THREE.MeshStandardMaterial({
+        color: 0xff7675,
+        transparent: true,
+        opacity: 0.8,
+        roughness: 0.2
+      });
+      for (let i = 0; i < 3; i++) {
+        const blade = new THREE.Mesh(bladeGeom, bladeMat);
+        blade.position.set(0, 0, 0.06);
+        
+        const bladeWrapper = new THREE.Group();
+        bladeWrapper.rotation.y = (i * 2 * Math.PI) / 3;
+        bladeWrapper.add(blade);
+        propGroup.add(bladeWrapper);
+      }
+      itemObject = propGroup;
     }
 
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.builderScene.add(mesh);
-    
-    this.draggedItem = mesh;
+    this.builderScene.add(itemObject);
+    this.draggedItem = itemObject;
     this.draggedItemType = type;
 
+    // Show matching, unoccupied slots and color-code them
     this.builderSlots.forEach(slot => {
       if (slot.userData.type === type && !slot.userData.occupied) {
         slot.visible = true;
-        (slot.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+        let slotColor = 0x00ff00;
+        if (slot.userData.type === 'camera') slotColor = 0x0984e3;
+        else if (slot.userData.type === 'esc') slotColor = 0x6c5ce7;
+        else if (slot.userData.type === 'fc') slotColor = 0xe17055;
+        else if (slot.userData.type === 'propeller') slotColor = 0x00d2d3;
+        
+        (slot.material as THREE.MeshBasicMaterial).color.setHex(slotColor);
         (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
       }
     });
@@ -1159,7 +1257,13 @@ export class SimEngine {
           closestSlot = slot;
         }
 
-        (slot.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+        let slotColor = 0x00ff00;
+        if (slot.userData.type === 'camera') slotColor = 0x0984e3;
+        else if (slot.userData.type === 'esc') slotColor = 0x6c5ce7;
+        else if (slot.userData.type === 'fc') slotColor = 0xe17055;
+        else if (slot.userData.type === 'propeller') slotColor = 0x00d2d3;
+
+        (slot.material as THREE.MeshBasicMaterial).color.setHex(slotColor);
         (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
       }
     });
@@ -1202,12 +1306,7 @@ export class SimEngine {
       }
     } else {
       this.builderScene.remove(this.draggedItem);
-      this.draggedItem.geometry.dispose();
-      if (Array.isArray(this.draggedItem.material)) {
-        this.draggedItem.material.forEach(m => m.dispose());
-      } else {
-        this.draggedItem.material.dispose();
-      }
+      this.disposeObject3D(this.draggedItem);
     }
 
     this.builderSlots.forEach(slot => {
@@ -1219,15 +1318,23 @@ export class SimEngine {
     this.snappedSlot = null;
   }
 
+  private disposeObject3D(obj: THREE.Object3D) {
+    obj.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry?.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => m.dispose());
+        } else if (child.material) {
+          child.material.dispose();
+        }
+      }
+    });
+  }
+
   public resetBuilder() {
     this.assembledParts.forEach(part => {
       this.builderFrameGroup.remove(part.mesh);
-      part.mesh.geometry.dispose();
-      if (Array.isArray(part.mesh.material)) {
-        part.mesh.material.forEach(m => m.dispose());
-      } else {
-        part.mesh.material.dispose();
-      }
+      this.disposeObject3D(part.mesh);
     });
     this.assembledParts = [];
 

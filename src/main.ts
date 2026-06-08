@@ -402,6 +402,26 @@ function initLocalization() {
   const invBatteryDesc = document.getElementById('inv-item-battery-desc');
   if (invBatteryDesc) invBatteryDesc.textContent = GameConfig.localization.invItemBatteryDesc;
 
+  const invCameraName = document.getElementById('inv-item-camera-name');
+  if (invCameraName) invCameraName.textContent = GameConfig.localization.invItemCameraName;
+  const invCameraDesc = document.getElementById('inv-item-camera-desc');
+  if (invCameraDesc) invCameraDesc.textContent = GameConfig.localization.invItemCameraDesc;
+
+  const invESCName = document.getElementById('inv-item-esc-name');
+  if (invESCName) invESCName.textContent = GameConfig.localization.invItemESCName;
+  const invESCDesc = document.getElementById('inv-item-esc-desc');
+  if (invESCDesc) invESCDesc.textContent = GameConfig.localization.invItemESCDesc;
+
+  const invFCName = document.getElementById('inv-item-fc-name');
+  if (invFCName) invFCName.textContent = GameConfig.localization.invItemFCName;
+  const invFCDesc = document.getElementById('inv-item-fc-desc');
+  if (invFCDesc) invFCDesc.textContent = GameConfig.localization.invItemFCDesc;
+
+  const invPropName = document.getElementById('inv-item-prop-name');
+  if (invPropName) invPropName.textContent = GameConfig.localization.invItemPropName;
+  const invPropDesc = document.getElementById('inv-item-prop-desc');
+  if (invPropDesc) invPropDesc.textContent = GameConfig.localization.invItemPropDesc;
+
   if (knowTitle) knowTitle.textContent = GameConfig.localization.viewKnowledgeTitle;
   if (knowDesc) knowDesc.textContent = GameConfig.localization.comingSoon;
 
@@ -773,19 +793,22 @@ function init() {
     }
   });
 
-  // Builder Drag and Drop handlers (Phase 17)
-  const motorBtn = document.querySelector('[data-type="motor"]');
-  const batteryBtn = document.querySelector('[data-type="battery"]');
+  // Builder Drag and Drop handlers (Phase 17/18)
+  const inventoryPanel = document.getElementById('builder-inventory');
+  const inventoryBtns = inventoryPanel?.querySelectorAll('.inventory-item-btn');
 
-  const onInventoryPointerDown = (e: PointerEvent, type: 'motor' | 'battery') => {
+  const onInventoryPointerDown = (e: PointerEvent, type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller') => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent OrbitControls drag start
     if (simEngine && currentView === 'builder') {
       simEngine.startDragging(type, e.clientX, e.clientY);
     }
   };
 
-  motorBtn?.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, 'motor'));
-  batteryBtn?.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, 'battery'));
+  inventoryBtns?.forEach(btn => {
+    const type = btn.getAttribute('data-type') as 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller';
+    btn.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, type));
+  });
 
   // Reset Builder handler
   const resetBuilderBtn = document.getElementById('btn-reset-builder');
@@ -795,6 +818,16 @@ function init() {
     }
     simEngine?.resetBuilder();
   });
+
+  const preventOrbitConflict = (e: Event) => {
+    e.stopPropagation();
+  };
+  resetBuilderBtn?.addEventListener('pointerdown', preventOrbitConflict);
+  resetBuilderBtn?.addEventListener('mousedown', preventOrbitConflict);
+
+  const backBuildBtn = document.getElementById('btn-back-to-menu-build');
+  backBuildBtn?.addEventListener('pointerdown', preventOrbitConflict);
+  backBuildBtn?.addEventListener('mousedown', preventOrbitConflict);
 
   // Orientation and Resize listeners
   window.addEventListener('resize', checkOrientation);

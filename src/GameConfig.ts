@@ -62,7 +62,7 @@ export const GameConfig = {
     }
   },
 
-  // 3D Builder Configurations (Data-Driven Phase 17)
+  // 3D Builder Configurations (Data-Driven Phase 17/18)
   builder: {
     snapThreshold: 0.5,
     slots: [
@@ -71,6 +71,13 @@ export const GameConfig = {
       { id: 'motor_br', type: 'motor', position: [0.177, 0.015, 0.177] as [number, number, number] },
       { id: 'motor_bl', type: 'motor', position: [-0.177, 0.015, 0.177] as [number, number, number] },
       { id: 'battery_center', type: 'battery', position: [0.0, 0.035, 0.0] as [number, number, number] },
+      { id: 'camera_front', type: 'camera', position: [0.0, 0.02, -0.16] as [number, number, number] },
+      { id: 'esc_bottom', type: 'esc', position: [0.0, -0.018, 0.0] as [number, number, number] },
+      { id: 'fc_top', type: 'fc', position: [0.0, 0.025, 0.0] as [number, number, number] },
+      { id: 'propeller_fr', type: 'propeller', position: [0.177, 0.05, -0.177] as [number, number, number] },
+      { id: 'propeller_fl', type: 'propeller', position: [-0.177, 0.05, -0.177] as [number, number, number] },
+      { id: 'propeller_br', type: 'propeller', position: [0.177, 0.05, 0.177] as [number, number, number] },
+      { id: 'propeller_bl', type: 'propeller', position: [-0.177, 0.05, 0.177] as [number, number, number] },
     ],
   },
 
@@ -122,6 +129,14 @@ export const GameConfig = {
     invItemMotorDesc: "Для тяги",
     invItemBatteryName: "LiPo 6S",
     invItemBatteryDesc: "Живлення",
+    invItemCameraName: "FPV Камера",
+    invItemCameraDesc: "Курсова камера",
+    invItemESCName: "Регулятор (ESC)",
+    invItemESCDesc: "Контроль моторики",
+    invItemFCName: "Польотник (FC)",
+    invItemFCDesc: "Мозок дрона",
+    invItemPropName: "Пропелери",
+    invItemPropDesc: "Гвинти 5 дюймів",
   }
 };
 
