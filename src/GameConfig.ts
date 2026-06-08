@@ -14,11 +14,13 @@ export const GameConfig = {
   // Physics and Drone parameters (Data-Driven)
   physics: {
     gravity: [0, -9.81, 0] as [number, number, number],
-    droneMass: 0.7, // 700g 7-inch drone prototype
+    droneMass: 1.3, // 1.3kg 7-inch combat drone
     droneDimensions: [0.5, 0.1, 0.5] as [number, number, number], // width, height, depth
     maxThrust: 15.0, // max upward force
     resetPosition: [0, 2.0, 0] as [number, number, number], // starting position above the ground
     fixedTimeStep: 1 / 240, // decoupled physics timestep at 240Hz
+    linearDamping: 0.1,
+    angularDamping: 0.2,
   },
 
   // Flight Controller & PID Configurations
@@ -36,7 +38,8 @@ export const GameConfig = {
       offsetY: 3.0,    // vertical camera offset from drone
       offsetZ: 7.0,    // backward camera offset from drone
       chaseOffset: [0, 1.5, 4.0] as [number, number, number],
-      fpvOffset: [0, 0.1, -0.2] as [number, number, number],
+      fpvOffset: [0, 0.12, -0.22] as [number, number, number],
+      fpvTilt: 0.20, // tilt camera down by ~11.5 degrees (0.20 rad)
       losOffset: [0, 3.0, 6.0] as [number, number, number]
     }
   },

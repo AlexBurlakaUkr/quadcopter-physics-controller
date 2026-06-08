@@ -493,6 +493,7 @@ function init() {
     }
     if (simEngine) {
       const mode = simEngine.cycleCameraMode();
+      cameraBtn.setAttribute('aria-label', `Камера: ${mode}`);
       const txtEl = document.getElementById('camera-btn-text');
       if (txtEl) {
         if (mode === 'LOS') {

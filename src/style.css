@@ -34,12 +34,16 @@
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
+  width: 100dvw;
   height: 100dvh;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
   background: radial-gradient(circle at center, var(--bg-dark) 0%, var(--bg-darker) 100%);
   display: flex;
   justify-content: center;
@@ -176,23 +180,58 @@ body {
 }
 #btn-back-to-menu-sim {
   position: absolute;
-  top: 75px;
-  left: 15px;
+  top: 24px;
+  left: 24px;
   z-index: 100;
 }
 #telemetry-dashboard {
   position: absolute;
-  top: 15px;
-  left: 15px;
-  max-width: 40%;
-  transform: none;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 20px;
   z-index: 100;
+  background: rgba(10, 12, 22, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  max-width: none;
+  width: auto;
+  pointer-events: none;
+}
+#btn-back-to-menu-sim,
+.sim-controls-top-right .camera-btn,
+.sim-controls-top-right .reset-btn {
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  font-size: 20px;
+}
+.back-icon,
+.camera-icon,
+.reset-icon {
+  font-size: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
 }
 
 .sim-controls-top-right {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: 24px;
+  right: 24px;
   display: flex;
   gap: 10px;
   flex-direction: row;
@@ -640,7 +679,12 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
+  height: 100vh;
+  width: 100dvw;
   height: 100dvh;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
   z-index: 0;
   pointer-events: none;
   display: none;
@@ -938,49 +982,59 @@ body {
 
 /* Mobile responsive reset button placement */
 @media (max-width: 800px) {
-  #telemetry-dashboard {
-    top: 10px;
-    left: 10px;
-  }
   #btn-back-to-menu-sim {
-    top: 60px;
-    left: 10px;
+    top: 16px;
+    left: 16px;
   }
   .sim-controls-top-right {
-    top: 10px;
-    right: 10px;
+    top: 16px;
+    right: 16px;
     gap: 8px;
   }
-  .reset-btn {
-    padding: 8px 12px;
-    font-size: 12px;
+  #btn-back-to-menu-sim,
+  .sim-controls-top-right .camera-btn,
+  .sim-controls-top-right .reset-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
-  .camera-btn {
-    padding: 8px 12px;
-    font-size: 12px;
+  .back-icon,
+  .camera-icon,
+  .reset-icon {
+    font-size: 18px;
+  }
+  #telemetry-dashboard {
+    bottom: 20px;
+    padding: 6px 14px;
+    gap: 10px;
   }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-  #telemetry-dashboard {
-    top: 8px;
-    left: 8px;
-  }
   #btn-back-to-menu-sim {
-    top: 52px;
-    left: 8px;
+    top: 12px;
+    left: 12px;
   }
   .sim-controls-top-right {
-    top: 8px;
-    right: 8px;
+    top: 12px;
+    right: 12px;
     gap: 6px;
   }
-  .reset-btn {
-    padding: 6px 12px;
-    font-size: 11px;
+  #btn-back-to-menu-sim,
+  .sim-controls-top-right .camera-btn,
+  .sim-controls-top-right .reset-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
   }
-  .camera-btn {
-    padding: 6px 12px;
-    font-size: 11px;
+  .back-icon,
+  .camera-icon,
+  .reset-icon {
+    font-size: 16px;
+  }
+  #telemetry-dashboard {
+    bottom: 15px;
+    padding: 4px 12px;
+    gap: 8px;
   }
 }

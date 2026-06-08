@@ -181,12 +181,33 @@ export class SimEngine {
     const startPos = GameConfig.physics.resetPosition;
     this.droneBody = new CANNON.Body({
       mass: mass,
-      shape: sphereShape,
-      linearDamping: 0.3,
-      angularDamping: 0.3,
+      linearDamping: GameConfig.physics.linearDamping,
+      angularDamping: GameConfig.physics.angularDamping,
     });
     this.droneBody.position.set(startPos[0], startPos[1], startPos[2]);
+    
+    // Add compound shapes (sphere body and 2 initiation rods)
+    this.droneBody.addShape(sphereShape);
+    
+    const rodLength = 0.35;
+    const rodBoxHalfExtents = new CANNON.Vec3(0.01, 0.01, rodLength / 2);
+    const rodBoxShape = new CANNON.Box(rodBoxHalfExtents);
+    this.droneBody.addShape(rodBoxShape, new CANNON.Vec3(-0.06, 0.0, -0.15 - rodLength / 2));
+    this.droneBody.addShape(rodBoxShape, new CANNON.Vec3(0.06, 0.0, -0.15 - rodLength / 2));
+
     this.world.addBody(this.droneBody);
+
+    // Register crash / collision listener
+    this.droneBody.addEventListener('collide', (event: any) => {
+      const targetBody = event.body;
+      if (targetBody && this.obstacleBodies.includes(targetBody)) {
+        console.warn("Drone crashed into obstacle!");
+        if (typeof navigator.vibrate === 'function') {
+          navigator.vibrate([100, 50, 100]); // Strong haptic feedback pattern
+        }
+        this.reset();
+      }
+    });
 
     // 2. High-Fidelity 3D Drone Model Group
     const droneGroup = new THREE.Group();
@@ -263,6 +284,29 @@ export class SimEngine {
       droneGroup.add(rotor);
       this.droneRotors.push(rotor);
     });
+
+    // FPV Detonation Initiation Rods (3D Mesh Additions)
+    const rodRadius = 0.0022; // ~4.4mm diameter
+    const rodGeom = new THREE.CylinderGeometry(rodRadius, rodRadius, rodLength, 8);
+    const rodMat = new THREE.MeshStandardMaterial({
+      color: 0xbdc3c7,
+      roughness: 0.3,
+      metalness: 0.9
+    });
+
+    const leftRodMesh = new THREE.Mesh(rodGeom, rodMat);
+    leftRodMesh.position.set(-0.06, 0.0, -0.15 - rodLength / 2);
+    leftRodMesh.rotation.x = Math.PI / 2;
+    leftRodMesh.castShadow = true;
+    leftRodMesh.receiveShadow = true;
+    droneGroup.add(leftRodMesh);
+
+    const rightRodMesh = new THREE.Mesh(rodGeom, rodMat);
+    rightRodMesh.position.set(0.06, 0.0, -0.15 - rodLength / 2);
+    rightRodMesh.rotation.x = Math.PI / 2;
+    rightRodMesh.castShadow = true;
+    rightRodMesh.receiveShadow = true;
+    droneGroup.add(rightRodMesh);
 
     this.scene.add(droneGroup);
     this.droneMesh = droneGroup;
@@ -488,7 +532,15 @@ export class SimEngine {
       offset.applyQuaternion(this.droneMesh.quaternion);
       const targetPosition = this.droneMesh.position.clone().add(offset);
       this.camera.position.copy(targetPosition);
-      this.camera.quaternion.copy(this.droneMesh.quaternion);
+      
+      // Copy drone rotation and apply tilt down (rotation around local X-axis)
+      const camQuat = this.droneMesh.quaternion.clone();
+      const tiltQuat = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        -cameraSettings.fpvTilt
+      );
+      camQuat.multiply(tiltQuat);
+      this.camera.quaternion.copy(camQuat);
     } else if (this.cameraMode === 'CHASE') {
       const offset = new THREE.Vector3(
         cameraSettings.chaseOffset[0],
@@ -552,8 +604,10 @@ export class SimEngine {
       if (isOnGround && localUp.y < 0.2) {
         this.droneBody.angularVelocity.set(0, 0, 0);
         this.droneBody.linearDamping = 0.9;
+        this.droneBody.angularDamping = 0.9;
       } else {
-        this.droneBody.linearDamping = 0.3;
+        this.droneBody.linearDamping = GameConfig.physics.linearDamping;
+        this.droneBody.angularDamping = GameConfig.physics.angularDamping;
       }
 
       // 1. Target angles and rates from inputs
@@ -595,7 +649,10 @@ export class SimEngine {
       this.droneBody.angularVelocity.copy(this.droneBody.vectorToWorldFrame(localAngularVelocity));
 
       // 5. Apply thrust upward along body local Y axis
-      const forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
+      let forceMagnitude = 0;
+      if (this.throttleInput > -0.99) {
+        forceMagnitude = normalizedThrottle * GameConfig.physics.maxThrust;
+      }
 
       if (forceMagnitude > 0) {
         const forceVec = new CANNON.Vec3(0, forceMagnitude, 0);
