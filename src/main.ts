@@ -414,11 +414,15 @@ function initLocalization() {
   const lblLOSDistance = document.getElementById('lbl-los-distance');
   const lblChaseDistance = document.getElementById('lbl-chase-distance');
   const lblFPVTilt = document.getElementById('lbl-fpv-tilt');
+  const lblLeftJoystickX = document.getElementById('lbl-left-joystick-x');
+  const lblRightJoystickX = document.getElementById('lbl-right-joystick-x');
 
   if (settingsTitle) settingsTitle.textContent = GameConfig.localization.settingsTitle;
   if (lblLOSDistance) lblLOSDistance.textContent = GameConfig.localization.lblLOSDistance;
   if (lblChaseDistance) lblChaseDistance.textContent = GameConfig.localization.lblChaseDistance;
   if (lblFPVTilt) lblFPVTilt.textContent = GameConfig.localization.lblFPVTilt;
+  if (lblLeftJoystickX) lblLeftJoystickX.textContent = GameConfig.localization.lblLeftJoystickX;
+  if (lblRightJoystickX) lblRightJoystickX.textContent = GameConfig.localization.lblRightJoystickX;
 }
 
 // App Initialization
@@ -600,6 +604,13 @@ function init() {
   const readoutChase = document.getElementById('readout-chase-distance');
   const sliderFPVTilt = document.getElementById('slider-fpv-tilt') as HTMLInputElement;
   const readoutFPVTilt = document.getElementById('readout-fpv-tilt');
+  const sliderLeftX = document.getElementById('slider-left-joystick-x') as HTMLInputElement;
+  const readoutLeftX = document.getElementById('readout-left-joystick-x');
+  const sliderRightX = document.getElementById('slider-right-joystick-x') as HTMLInputElement;
+  const readoutRightX = document.getElementById('readout-right-joystick-x');
+
+  const joystickLeftEl = document.getElementById('joystick-left');
+  const joystickRightEl = document.getElementById('joystick-right');
 
   // Load saved camera settings from localStorage if they exist
   const savedLOS = localStorage.getItem('fpv_academy_los_distance');
@@ -613,6 +624,14 @@ function init() {
   const savedFPVTilt = localStorage.getItem('fpv_academy_fpv_tilt');
   if (savedFPVTilt !== null) {
     GameConfig.flight.camera.fpvTiltDegrees = parseInt(savedFPVTilt, 10);
+  }
+  const savedLeftX = localStorage.getItem('fpv_academy_left_joystick_x');
+  if (savedLeftX !== null) {
+    GameConfig.flight.camera.leftJoystickXOffset = parseInt(savedLeftX, 10);
+  }
+  const savedRightX = localStorage.getItem('fpv_academy_right_joystick_x');
+  if (savedRightX !== null) {
+    GameConfig.flight.camera.rightJoystickXOffset = parseInt(savedRightX, 10);
   }
 
   const updateLOSFromSlider = () => {
@@ -639,9 +658,27 @@ function init() {
     simEngine?.updateCamera();
   };
 
+  const updateLeftJoystickXFromSlider = () => {
+    const val = parseInt(sliderLeftX.value, 10);
+    GameConfig.flight.camera.leftJoystickXOffset = val;
+    localStorage.setItem('fpv_academy_left_joystick_x', val.toString());
+    if (readoutLeftX) readoutLeftX.textContent = `${val}px`;
+    if (joystickLeftEl) joystickLeftEl.style.left = `${val}px`;
+  };
+
+  const updateRightJoystickXFromSlider = () => {
+    const val = parseInt(sliderRightX.value, 10);
+    GameConfig.flight.camera.rightJoystickXOffset = val;
+    localStorage.setItem('fpv_academy_right_joystick_x', val.toString());
+    if (readoutRightX) readoutRightX.textContent = `${val}px`;
+    if (joystickRightEl) joystickRightEl.style.right = `${val}px`;
+  };
+
   sliderLOS?.addEventListener('input', updateLOSFromSlider);
   sliderChase?.addEventListener('input', updateChaseFromSlider);
   sliderFPVTilt?.addEventListener('input', updateFPVTiltFromSlider);
+  sliderLeftX?.addEventListener('input', updateLeftJoystickXFromSlider);
+  sliderRightX?.addEventListener('input', updateRightJoystickXFromSlider);
 
   // Initialize slider values
   if (sliderLOS) {
@@ -655,6 +692,14 @@ function init() {
   if (sliderFPVTilt) {
     sliderFPVTilt.value = GameConfig.flight.camera.fpvTiltDegrees.toString();
     updateFPVTiltFromSlider();
+  }
+  if (sliderLeftX) {
+    sliderLeftX.value = GameConfig.flight.camera.leftJoystickXOffset.toString();
+    updateLeftJoystickXFromSlider();
+  }
+  if (sliderRightX) {
+    sliderRightX.value = GameConfig.flight.camera.rightJoystickXOffset.toString();
+    updateRightJoystickXFromSlider();
   }
 
   // Reset Button handler

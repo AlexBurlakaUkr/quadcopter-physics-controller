@@ -57,6 +57,8 @@ export const GameConfig = {
       chaseDistance: 3.5,
       losDistance: 6.0,
       fpvTiltDegrees: 25,
+      leftJoystickXOffset: 30,
+      rightJoystickXOffset: 30,
     }
   },
 
@@ -98,6 +100,8 @@ export const GameConfig = {
     lblLOSDistance: "LOS Дистанція",
     lblChaseDistance: "Chase Дистанція",
     lblFPVTilt: "FPV Кут Нахилу",
+    lblLeftJoystickX: "Лівий стік X-зсув",
+    lblRightJoystickX: "Правий стік X-зсув",
   }
 };
 

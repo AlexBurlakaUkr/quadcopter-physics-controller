@@ -52,6 +52,12 @@ export class SimEngine {
   private isActive = false;
   private cameraMode: 'LOS' | 'CHASE' | 'FPV' = 'LOS';
 
+  // 3D Initiation Rods Group
+  private initiationRodsGroup!: THREE.Group;
+
+  // Persistent tracking yaw for LOS camera
+  private losCameraYaw = 0;
+
   // PID controllers
   private pitchController!: PIDController;
   private rollController!: PIDController;
@@ -144,7 +150,7 @@ export class SimEngine {
     this.camera = new THREE.PerspectiveCamera(
       60,
       window.innerWidth / window.innerHeight,
-      0.1,
+      0.01,
       1000
     );
     // Camera positioned at (0, 3, 7) and looking at origin
@@ -415,14 +421,18 @@ export class SimEngine {
     leftRodMesh.rotation.x = Math.PI / 2;
     leftRodMesh.castShadow = true;
     leftRodMesh.receiveShadow = true;
-    droneGroup.add(leftRodMesh);
 
     const rightRodMesh = new THREE.Mesh(rodGeom, rodMat);
     rightRodMesh.position.set(0.06, 0.0, -0.15 - rodLength / 2);
     rightRodMesh.rotation.x = Math.PI / 2;
     rightRodMesh.castShadow = true;
     rightRodMesh.receiveShadow = true;
-    droneGroup.add(rightRodMesh);
+
+    // Group the rods to rotate them together for camera tilt sync
+    this.initiationRodsGroup = new THREE.Group();
+    this.initiationRodsGroup.add(leftRodMesh);
+    this.initiationRodsGroup.add(rightRodMesh);
+    droneGroup.add(this.initiationRodsGroup);
 
     this.scene.add(droneGroup);
     this.droneMesh = droneGroup;
@@ -582,7 +592,7 @@ export class SimEngine {
       this.cameraMode = 'LOS';
     }
     // Snap camera immediately on transition
-    this.updateCameraFollow();
+    this.updateCameraFollow(1 / 60, true);
     return this.cameraMode;
   }
 
@@ -625,7 +635,7 @@ export class SimEngine {
     if (this.droneMesh) {
       this.droneMesh.visible = true;
     }
-    this.updateCameraFollow();
+    this.updateCameraFollow(1 / 60, true);
   }
 
   private handleResize = () => {
@@ -691,8 +701,14 @@ export class SimEngine {
     });
   }
 
-  private updateCameraFollow() {
+  private updateCameraFollow(deltaTime: number = 1 / 60, snap: boolean = false) {
     const cameraSettings = GameConfig.flight.camera;
+
+    // Sync detonation rods group tilt rotation with FPV tilt angle (Task 3)
+    if (this.initiationRodsGroup) {
+      const tiltRad = cameraSettings.fpvTiltDegrees * (Math.PI / 180);
+      this.initiationRodsGroup.rotation.x = tiltRad;
+    }
 
     if (this.cameraMode === 'FPV') {
       const offset = new THREE.Vector3(
@@ -724,19 +740,42 @@ export class SimEngine {
       this.camera.position.copy(targetPosition);
       this.camera.quaternion.copy(this.droneMesh.quaternion);
     } else if (this.cameraMode === 'LOS') {
+      // Intelligent directional follow based on drone yaw (Task 1)
+      const distance = cameraSettings.losDistance;
+      const height = distance * 0.5;
+
+      // Extract horizontal heading Yaw from drone frame (ignoring pitch and roll)
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.droneMesh.quaternion);
+      const droneYaw = Math.atan2(-forward.x, -forward.z);
+
+      // Smoothly interpolate around world Y-axis (Yaw)
+      if (snap) {
+        this.losCameraYaw = droneYaw;
+      } else {
+        let diff = droneYaw - this.losCameraYaw;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        
+        // Frame-rate independent lerp using lerpFactor
+        const frameRatio = deltaTime * 60;
+        const lerpAmount = Math.min(cameraSettings.lerpFactor * frameRatio, 1.0);
+        this.losCameraYaw += diff * lerpAmount;
+      }
+
+      // Compute level camera offset (Horizon Lock)
       const offset = new THREE.Vector3(
-        0,
-        cameraSettings.losDistance * 0.5,
-        cameraSettings.losDistance
+        Math.sin(this.losCameraYaw) * distance,
+        height,
+        Math.cos(this.losCameraYaw) * distance
       );
       const targetPosition = this.droneMesh.position.clone().add(offset);
+
       this.camera.position.copy(targetPosition);
       this.camera.lookAt(this.droneMesh.position);
     }
   }
 
   public updateCamera() {
-    this.updateCameraFollow();
+    this.updateCameraFollow(1 / 60, true);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -903,7 +942,7 @@ export class SimEngine {
     this.syncMeshWithPhysics();
 
     // Camera follow drone (calculates target and lerps camera position, then calls lookAt)
-    this.updateCameraFollow();
+    this.updateCameraFollow(deltaTime);
 
     // Render Scene
     this.renderer.render(this.scene, this.camera);

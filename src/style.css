@@ -181,7 +181,7 @@ body {
 #btn-back-to-menu-sim {
   position: absolute;
   top: 24px;
-  left: 24px;
+  left: calc(24px + env(safe-area-inset-left));
   z-index: 100;
 }
 #telemetry-dashboard {
@@ -231,7 +231,7 @@ body {
 .sim-controls-top-right {
   position: absolute;
   top: 24px;
-  right: 24px;
+  right: calc(24px + env(safe-area-inset-right));
   display: flex;
   gap: 10px;
   flex-direction: row;
@@ -696,7 +696,7 @@ body {
 
 /* Ensure Sim View is transparent and sits above the canvas */
 #sim-view {
-  position: relative;
+  position: fixed;
   z-index: 10;
   background: transparent;
 }
@@ -707,7 +707,7 @@ body {
 
 /* SPA View Architecture */
 .app-view {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
@@ -984,25 +984,25 @@ body {
 @media (max-width: 800px) {
   #btn-back-to-menu-sim {
     top: 16px;
-    left: 16px;
+    left: calc(32px + env(safe-area-inset-left));
   }
   #btn-info {
     top: 16px;
-    left: 66px;
+    left: calc(80px + env(safe-area-inset-left));
     width: 40px;
     height: 40px;
     font-size: 18px;
   }
   #btn-settings {
     top: 16px;
-    left: 116px;
+    left: calc(128px + env(safe-area-inset-left));
     width: 40px;
     height: 40px;
     font-size: 18px;
   }
   .sim-controls-top-right {
     top: 16px;
-    right: 16px;
+    right: calc(32px + env(safe-area-inset-right));
     gap: 8px;
   }
   #btn-back-to-menu-sim,
@@ -1027,25 +1027,25 @@ body {
 @media (max-height: 500px) and (orientation: landscape) {
   #btn-back-to-menu-sim {
     top: 12px;
-    left: 12px;
+    left: calc(36px + env(safe-area-inset-left));
   }
   #btn-info {
     top: 12px;
-    left: 54px;
+    left: calc(78px + env(safe-area-inset-left));
     width: 36px;
     height: 36px;
     font-size: 16px;
   }
   #btn-settings {
     top: 12px;
-    left: 96px;
+    left: calc(120px + env(safe-area-inset-left));
     width: 36px;
     height: 36px;
     font-size: 16px;
   }
   .sim-controls-top-right {
     top: 12px;
-    right: 12px;
+    right: calc(36px + env(safe-area-inset-right));
     gap: 6px;
   }
   #btn-back-to-menu-sim,
@@ -1071,7 +1071,7 @@ body {
 .info-btn {
   position: absolute;
   top: 24px;
-  left: 79px;
+  left: calc(79px + env(safe-area-inset-left));
   width: 45px;
   height: 45px;
   padding: 0;
@@ -1471,7 +1471,7 @@ body {
 .settings-btn {
   position: absolute;
   top: 24px;
-  left: 134px;
+  left: calc(134px + env(safe-area-inset-left));
   width: 45px;
   height: 45px;
   padding: 0;
