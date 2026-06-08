@@ -3,13 +3,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GameConfig } from './GameConfig';
 import { PIDController } from './PIDController';
-
-const BUILDER_CONFIG = {
-  deckWidth: 0.20,
-  deckHeight: 0.03,
-  deckDepth: 0.70,
-  cameraDistance: 4.5
-};
+import { BUILDER_CONFIG } from './BuilderConfig';
 
 export class SimEngine {
   private canvas: HTMLCanvasElement;
