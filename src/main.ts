@@ -421,6 +421,11 @@ function init() {
       if (typeof navigator.vibrate === 'function') {
         navigator.vibrate(20);
       }
+      if (btnId === 'btn-simulator') {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(e => console.log(e));
+        }
+      }
       switchView(viewName);
     });
   });
@@ -438,6 +443,11 @@ function init() {
     el?.addEventListener('click', () => {
       if (typeof navigator.vibrate === 'function') {
         navigator.vibrate(15);
+      }
+      if (id === 'btn-back-to-menu-sim') {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(e => console.log(e));
+        }
       }
       switchView(target);
     });

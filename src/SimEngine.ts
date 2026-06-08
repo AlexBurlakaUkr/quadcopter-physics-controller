@@ -422,7 +422,7 @@ export class SimEngine {
       this.cameraMode = 'LOS';
     }
     // Snap camera immediately on transition
-    this.updateCameraFollow(true);
+    this.updateCameraFollow();
     return this.cameraMode;
   }
 
@@ -462,16 +462,13 @@ export class SimEngine {
 
     this.timeAccumulator = 0;
     this.syncMeshWithPhysics();
-    this.updateCameraFollow(true);
+    this.updateCameraFollow();
   }
 
   private handleResize = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    
-    this.renderer.setSize(width, height, false);
-    this.camera.aspect = width / height;
+    this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
 
   private syncMeshWithPhysics() {
@@ -479,54 +476,38 @@ export class SimEngine {
     this.droneMesh.quaternion.copy(this.droneBody.quaternion as any);
   }
 
-  private updateCameraFollow(snap: boolean = false) {
+  private updateCameraFollow() {
     const cameraSettings = GameConfig.flight.camera;
 
-    if (this.cameraMode === 'LOS') {
-      const targetPosition = new THREE.Vector3(
-        this.droneMesh.position.x,
-        this.droneMesh.position.y + cameraSettings.offsetY,
-        this.droneMesh.position.z + cameraSettings.offsetZ
-      );
-      if (snap) {
-        this.camera.position.copy(targetPosition);
-      } else {
-        this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
-      }
-      this.camera.lookAt(this.droneMesh.position);
-    } else if (this.cameraMode === 'CHASE') {
-      const localOffset = new THREE.Vector3(
-        cameraSettings.chaseOffset[0],
-        cameraSettings.chaseOffset[1],
-        cameraSettings.chaseOffset[2]
-      );
-      localOffset.applyQuaternion(this.droneMesh.quaternion);
-
-      const targetPosition = new THREE.Vector3()
-        .copy(this.droneMesh.position)
-        .add(localOffset);
-
-      if (snap) {
-        this.camera.position.copy(targetPosition);
-      } else {
-        this.camera.position.lerp(targetPosition, cameraSettings.lerpFactor);
-      }
-      this.camera.lookAt(this.droneMesh.position);
-    } else if (this.cameraMode === 'FPV') {
-      const localOffset = new THREE.Vector3(
+    if (this.cameraMode === 'FPV') {
+      const offset = new THREE.Vector3(
         cameraSettings.fpvOffset[0],
         cameraSettings.fpvOffset[1],
         cameraSettings.fpvOffset[2]
       );
-      localOffset.applyQuaternion(this.droneMesh.quaternion);
-
-      const targetPosition = new THREE.Vector3()
-        .copy(this.droneMesh.position)
-        .add(localOffset);
-
-      // Instantly copy position and quaternion for rigid FPV camera feel
+      offset.applyQuaternion(this.droneMesh.quaternion);
+      const targetPosition = this.droneMesh.position.clone().add(offset);
       this.camera.position.copy(targetPosition);
       this.camera.quaternion.copy(this.droneMesh.quaternion);
+    } else if (this.cameraMode === 'CHASE') {
+      const offset = new THREE.Vector3(
+        cameraSettings.chaseOffset[0],
+        cameraSettings.chaseOffset[1],
+        cameraSettings.chaseOffset[2]
+      );
+      offset.applyQuaternion(this.droneMesh.quaternion);
+      const targetPosition = this.droneMesh.position.clone().add(offset);
+      this.camera.position.copy(targetPosition);
+      this.camera.quaternion.copy(this.droneMesh.quaternion);
+    } else if (this.cameraMode === 'LOS') {
+      const offset = new THREE.Vector3(
+        cameraSettings.losOffset[0],
+        cameraSettings.losOffset[1],
+        cameraSettings.losOffset[2]
+      );
+      const targetPosition = this.droneMesh.position.clone().add(offset);
+      this.camera.position.copy(targetPosition);
+      this.camera.lookAt(this.droneMesh.position);
     }
   }
 
@@ -631,7 +612,7 @@ export class SimEngine {
     this.syncMeshWithPhysics();
 
     // Camera follow drone (calculates target and lerps camera position, then calls lookAt)
-    this.updateCameraFollow(false);
+    this.updateCameraFollow();
 
     // Render Scene
     this.renderer.render(this.scene, this.camera);
