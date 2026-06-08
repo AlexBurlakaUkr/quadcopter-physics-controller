@@ -272,21 +272,30 @@
 
       <!-- ==================== DRONE BUILDER VIEW ==================== -->
       <section id="builder-view" class="app-view hidden-view">
-        <div class="builder-header-container">
-          <button id="btn-back-to-menu-build" class="glass-panel back-btn" aria-label="Назад в меню">
-            <span class="back-icon">←</span>
-            <span class="btn-text" id="back-btn-text-build">Назад в меню</span>
+        <!-- Unified Top Bar (Task 2) -->
+        <div class="builder-top-bar">
+          <!-- Left side: Exit button -->
+          <button id="btn-back-to-menu-build" class="glass-panel exit-btn-build" aria-label="Назад в меню">
+            <span class="back-icon">✕</span>
           </button>
           
-          <div class="glass-panel builder-instructions-panel">
+          <!-- Center: Title -->
+          <div class="builder-title-container">
             <h2 class="builder-title" id="build-view-title">Конструктор дрона</h2>
-            <p class="builder-desc" id="builder-instructions-text">Перетягуйте компоненти з панелі на раму дрона для збірки.</p>
           </div>
           
-          <button id="btn-reset-builder" class="glass-panel builder-reset-btn" aria-label="Скинути збірку">
-            <span class="reset-icon">↺</span>
-            <span class="btn-text" id="builder-reset-text">Скинути</span>
-          </button>
+          <!-- Right side: Control buttons -->
+          <div class="builder-controls-right">
+            <button id="btn-info-build" class="glass-panel info-btn-build" aria-label="Інформація">
+              <span class="info-icon">ℹ</span>
+            </button>
+            <button id="btn-settings-build" class="glass-panel settings-btn-build" aria-label="Налаштування">
+              <span class="settings-icon">⚙</span>
+            </button>
+            <button id="btn-reset-builder" class="glass-panel builder-reset-btn" aria-label="Скинути збірку">
+              <span class="reset-icon">↺</span>
+            </button>
+          </div>
         </div>
 
         <!-- Progress Tracker Panel (Task 3) -->

@@ -4,6 +4,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GameConfig } from './GameConfig';
 import { PIDController } from './PIDController';
 
+const BUILDER_CONFIG = {
+  deckWidth: 0.20,
+  deckHeight: 0.03,
+  deckDepth: 0.70,
+  cameraDistance: 4.5
+};
+
 export class SimEngine {
   private canvas: HTMLCanvasElement;
   private renderer!: THREE.WebGLRenderer;
@@ -54,8 +61,8 @@ export class SimEngine {
   // Resetting state
   private isResetting = false;
 
-  // Clock for frame delta
-  private clock!: THREE.Clock;
+  // Time tracking for frame delta
+  private lastTime = 0;
 
   // Physics time accumulator
   private timeAccumulator = 0;
@@ -126,8 +133,8 @@ export class SimEngine {
   }
 
   private initGraphics() {
-    // Initialize Clock
-    this.clock = new THREE.Clock();
+    // Initialize Time
+    this.lastTime = performance.now();
 
     // Renderer - using window sizes directly
     this.renderer = new THREE.WebGLRenderer({
@@ -138,7 +145,7 @@ export class SimEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     
     // Clear color set to fogColor from GameConfig
     const env = GameConfig.environment;
@@ -619,7 +626,7 @@ export class SimEngine {
     this.isActive = true;
     this.canvas.classList.add('active');
     this.handleResize();
-    this.clock.getDelta(); // Reset clock delta on start
+    this.lastTime = performance.now(); // Reset time delta on start
     this.loop();
   }
 
@@ -802,7 +809,9 @@ export class SimEngine {
 
     this.animationFrameId = requestAnimationFrame(this.loop);
 
-    const deltaTime = Math.min(this.clock.getDelta(), 0.1);
+    const now = performance.now();
+    const deltaTime = Math.min((now - this.lastTime) / 1000, 0.1);
+    this.lastTime = now;
 
     if (this.viewMode === 'builder') {
       this.builderControls?.update();
@@ -981,7 +990,7 @@ export class SimEngine {
       0.1,
       100
     );
-    this.builderCamera.position.set(0, 1.0, 1.8);
+    this.builderCamera.position.set(0, BUILDER_CONFIG.cameraDistance * 0.22, BUILDER_CONFIG.cameraDistance * 0.4);
 
     const builderViewEl = document.getElementById('builder-view') || this.renderer.domElement;
     this.builderControls = new OrbitControls(this.builderCamera, builderViewEl);
@@ -1030,7 +1039,7 @@ export class SimEngine {
     centerPlate.receiveShadow = true;
 
     // Rectangular flat carbon grey deck (Task 2)
-    const deckGeom = new THREE.BoxGeometry(0.35, 0.04, 1.0);
+    const deckGeom = new THREE.BoxGeometry(BUILDER_CONFIG.deckWidth, BUILDER_CONFIG.deckHeight, BUILDER_CONFIG.deckDepth);
     const deckMat = new THREE.MeshStandardMaterial({
       color: 0x1e272e,
       roughness: 0.7,
@@ -1063,7 +1072,30 @@ export class SimEngine {
         wireframe: true
       });
       const slotMesh = new THREE.Mesh(slotGeom, slotMat);
-      slotMesh.position.set(slotData.position[0], slotData.position[1], slotData.position[2]);
+      let x = slotData.position[0];
+      let y = slotData.position[1];
+      let z = slotData.position[2];
+
+      // Dynamically override slot spacing based on BUILDER_CONFIG (Task 1)
+      if (slotData.id === 'camera_front') {
+        x = 0;
+        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        z = -BUILDER_CONFIG.deckDepth / 2;
+      } else if (slotData.id === 'fc_top') {
+        x = 0;
+        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        z = -BUILDER_CONFIG.deckDepth * 0.22;
+      } else if (slotData.id === 'esc_bottom') {
+        x = 0;
+        y = BUILDER_CONFIG.deckHeight / 2 + 0.005;
+        z = BUILDER_CONFIG.deckDepth * 0.22;
+      } else if (slotData.id === 'battery_center') {
+        x = 0;
+        y = BUILDER_CONFIG.deckHeight / 2 + 0.03;
+        z = 0;
+      }
+
+      slotMesh.position.set(x, y, z);
       slotMesh.userData = {
         id: slotData.id,
         type: slotData.type,
