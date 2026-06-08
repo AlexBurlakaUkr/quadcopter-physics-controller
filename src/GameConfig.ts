@@ -23,6 +23,17 @@ export const GameConfig = {
     angularDamping: 0.2,
   },
 
+  // Environmental parameters (Data-Driven Environment Brightening)
+  environment: {
+    ambientLightIntensity: 1.2,
+    dirLightIntensity: 1.8,
+    fogColor: 0xe2e8f0,
+    fogNear: 100,
+    fogFar: 1000,
+    skyColorTop: '#1d78c1',
+    skyColorBottom: '#e2e8f0',
+  },
+
   // Flight Controller & PID Configurations
   flight: {
     maxPitchAngle: 0.6, // radians (~34 degrees)
@@ -40,7 +51,12 @@ export const GameConfig = {
       chaseOffset: [0, 0.8, 3.5] as [number, number, number],
       fpvOffset: [0, 0.12, -0.22] as [number, number, number],
       fpvTilt: 0.20, // tilt camera down by ~11.5 degrees (0.20 rad)
-      losOffset: [0, 3.0, 6.0] as [number, number, number]
+      losOffset: [0, 3.0, 6.0] as [number, number, number],
+      
+      // Dynamic camera offsets updated by Settings sliders
+      chaseDistance: 3.5,
+      losDistance: 6.0,
+      fpvTiltDegrees: 25,
     }
   },
 
@@ -76,6 +92,12 @@ export const GameConfig = {
     lblGimbalLeftH: "Yaw (Поворот)",
     lblGimbalRightV: "Pitch (Тангаж)",
     lblGimbalRightH: "Roll (Крен)",
+    
+    // Settings modal localizations
+    settingsTitle: "Налаштування камери",
+    lblLOSDistance: "LOS Дистанція",
+    lblChaseDistance: "Chase Дистанція",
+    lblFPVTilt: "FPV Кут Нахилу",
   }
 };
 

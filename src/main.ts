@@ -19,13 +19,43 @@ let currentTelemetry: TelemetryData = {
   pitch: 0.0,
   roll: 0.0
 };
-
 let previousTelemetry: TelemetryData = {
   throttle: -1.0,
   yaw: 0.0,
   pitch: 0.0,
   roll: 0.0
 };
+
+// Screen Wake Lock State
+let wakeLock: WakeLockSentinel | null = null;
+
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } catch (err: any) {
+      console.error(`Wake Lock request failed: ${err.message}`);
+    }
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try {
+      await wakeLock.release();
+      wakeLock = null;
+    } catch (err: any) {
+      console.error(`Wake Lock release failed: ${err.message}`);
+    }
+  }
+}
+
+// Listen to visibility changes to re-request wake lock
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentView === 'sim') {
+    requestWakeLock();
+  }
+});
 
 // Zero-crossing check function
 function crossedZero(prev: number, curr: number): boolean {
@@ -216,6 +246,35 @@ let currentView: ViewName = 'main-menu';
 let simEngine: SimEngine | null = null;
 let joystickLeft: VirtualJoystick | null = null;
 let joystickRight: VirtualJoystick | null = null;
+let fadeOverlay: HTMLElement | null = null;
+
+function transitionToView(viewName: ViewName, shouldFullscreen: boolean = false) {
+  if (!fadeOverlay) {
+    if (shouldFullscreen && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(e => console.error(e));
+    }
+    switchView(viewName);
+    return;
+  }
+
+  fadeOverlay.classList.add('visible');
+
+  setTimeout(() => {
+    if (shouldFullscreen && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(e => console.error(e));
+    } else if (!shouldFullscreen && document.exitFullscreen) {
+      if (currentView === 'sim') {
+        document.exitFullscreen().catch(e => console.error(e));
+      }
+    }
+    
+    switchView(viewName);
+
+    setTimeout(() => {
+      fadeOverlay?.classList.remove('visible');
+    }, 150);
+  }, 350);
+}
 
 function switchView(targetView: ViewName) {
   currentView = targetView;
@@ -249,9 +308,11 @@ function switchView(targetView: ViewName) {
     ambientBg?.classList.add('hidden');
     simEngine?.start();
     simEngine?.reset();
+    requestWakeLock();
   } else {
     ambientBg?.classList.remove('hidden');
     simEngine?.stop();
+    releaseWakeLock();
   }
 
   // Update orientation check for the current view state
@@ -347,6 +408,17 @@ function initLocalization() {
   if (lblGimbalLeftH) lblGimbalLeftH.textContent = GameConfig.localization.lblGimbalLeftH;
   if (lblGimbalRightV) lblGimbalRightV.textContent = GameConfig.localization.lblGimbalRightV;
   if (lblGimbalRightH) lblGimbalRightH.textContent = GameConfig.localization.lblGimbalRightH;
+
+  // Settings Modal translations
+  const settingsTitle = document.getElementById('settings-title');
+  const lblLOSDistance = document.getElementById('lbl-los-distance');
+  const lblChaseDistance = document.getElementById('lbl-chase-distance');
+  const lblFPVTilt = document.getElementById('lbl-fpv-tilt');
+
+  if (settingsTitle) settingsTitle.textContent = GameConfig.localization.settingsTitle;
+  if (lblLOSDistance) lblLOSDistance.textContent = GameConfig.localization.lblLOSDistance;
+  if (lblChaseDistance) lblChaseDistance.textContent = GameConfig.localization.lblChaseDistance;
+  if (lblFPVTilt) lblFPVTilt.textContent = GameConfig.localization.lblFPVTilt;
 }
 
 // App Initialization
@@ -356,6 +428,7 @@ function init() {
   }
 
   initLocalization();
+  fadeOverlay = document.getElementById('fade-overlay');
 
   // Initialize Simulator 3D Engine
   try {
@@ -449,12 +522,8 @@ function init() {
       if (typeof navigator.vibrate === 'function') {
         navigator.vibrate(20);
       }
-      if (btnId === 'btn-simulator') {
-        if (document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(e => console.log(e));
-        }
-      }
-      switchView(viewName);
+      const isSim = btnId === 'btn-simulator';
+      transitionToView(viewName, isSim);
     });
   });
 
@@ -473,13 +542,12 @@ function init() {
         navigator.vibrate(15);
       }
       if (id === 'btn-back-to-menu-sim') {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(e => console.log(e));
-        }
         const infoModal = document.getElementById('info-modal');
         infoModal?.classList.add('hidden-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        settingsModal?.classList.add('hidden-modal');
       }
-      switchView(target);
+      transitionToView(target, false);
     });
   });
 
@@ -503,6 +571,91 @@ function init() {
     infoModal?.classList.add('hidden-modal');
     simEngine?.start();
   });
+
+  // Settings Modal Toggles
+  const btnSettings = document.getElementById('btn-settings');
+  const btnCloseSettings = document.getElementById('btn-close-settings');
+  const settingsModal = document.getElementById('settings-modal');
+
+  btnSettings?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    settingsModal?.classList.remove('hidden-modal');
+    simEngine?.stop();
+  });
+
+  btnCloseSettings?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    settingsModal?.classList.add('hidden-modal');
+    simEngine?.start();
+  });
+
+  // Sliders Input Bindings
+  const sliderLOS = document.getElementById('slider-los-distance') as HTMLInputElement;
+  const readoutLOS = document.getElementById('readout-los-distance');
+  const sliderChase = document.getElementById('slider-chase-distance') as HTMLInputElement;
+  const readoutChase = document.getElementById('readout-chase-distance');
+  const sliderFPVTilt = document.getElementById('slider-fpv-tilt') as HTMLInputElement;
+  const readoutFPVTilt = document.getElementById('readout-fpv-tilt');
+
+  // Load saved camera settings from localStorage if they exist
+  const savedLOS = localStorage.getItem('fpv_academy_los_distance');
+  if (savedLOS !== null) {
+    GameConfig.flight.camera.losDistance = parseFloat(savedLOS);
+  }
+  const savedChase = localStorage.getItem('fpv_academy_chase_distance');
+  if (savedChase !== null) {
+    GameConfig.flight.camera.chaseDistance = parseFloat(savedChase);
+  }
+  const savedFPVTilt = localStorage.getItem('fpv_academy_fpv_tilt');
+  if (savedFPVTilt !== null) {
+    GameConfig.flight.camera.fpvTiltDegrees = parseInt(savedFPVTilt, 10);
+  }
+
+  const updateLOSFromSlider = () => {
+    const val = parseFloat(sliderLOS.value);
+    GameConfig.flight.camera.losDistance = val;
+    localStorage.setItem('fpv_academy_los_distance', val.toString());
+    if (readoutLOS) readoutLOS.textContent = `${val.toFixed(1)}m`;
+    simEngine?.updateCamera();
+  };
+
+  const updateChaseFromSlider = () => {
+    const val = parseFloat(sliderChase.value);
+    GameConfig.flight.camera.chaseDistance = val;
+    localStorage.setItem('fpv_academy_chase_distance', val.toString());
+    if (readoutChase) readoutChase.textContent = `${val.toFixed(1)}m`;
+    simEngine?.updateCamera();
+  };
+
+  const updateFPVTiltFromSlider = () => {
+    const val = parseInt(sliderFPVTilt.value, 10);
+    GameConfig.flight.camera.fpvTiltDegrees = val;
+    localStorage.setItem('fpv_academy_fpv_tilt', val.toString());
+    if (readoutFPVTilt) readoutFPVTilt.textContent = `${val}°`;
+    simEngine?.updateCamera();
+  };
+
+  sliderLOS?.addEventListener('input', updateLOSFromSlider);
+  sliderChase?.addEventListener('input', updateChaseFromSlider);
+  sliderFPVTilt?.addEventListener('input', updateFPVTiltFromSlider);
+
+  // Initialize slider values
+  if (sliderLOS) {
+    sliderLOS.value = GameConfig.flight.camera.losDistance.toString();
+    updateLOSFromSlider();
+  }
+  if (sliderChase) {
+    sliderChase.value = GameConfig.flight.camera.chaseDistance.toString();
+    updateChaseFromSlider();
+  }
+  if (sliderFPVTilt) {
+    sliderFPVTilt.value = GameConfig.flight.camera.fpvTiltDegrees.toString();
+    updateFPVTiltFromSlider();
+  }
 
   // Reset Button handler
   const resetBtn = document.getElementById('btn-reset-drone');

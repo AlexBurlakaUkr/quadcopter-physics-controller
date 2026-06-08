@@ -116,12 +116,29 @@ export class SimEngine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
-    // Clear color set to 0x1a2530 as requested
-    this.renderer.setClearColor(0x1a2530, 1);
+    // Clear color set to fogColor from GameConfig
+    const env = GameConfig.environment;
+    this.renderer.setClearColor(env.fogColor, 1);
 
     // Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x1a2530, 0.015);
+    
+    // Create sky gradient background
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 512;
+    const context = canvas.getContext('2d');
+    if (context) {
+      const gradient = context.createLinearGradient(0, 0, 0, 512);
+      gradient.addColorStop(0, env.skyColorTop);
+      gradient.addColorStop(1, env.skyColorBottom);
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, 2, 512);
+    }
+    const skyTexture = new THREE.CanvasTexture(canvas);
+    this.scene.background = skyTexture;
+
+    this.scene.fog = new THREE.Fog(env.fogColor, env.fogNear, env.fogFar);
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(
@@ -134,12 +151,12 @@ export class SimEngine {
     this.camera.position.set(0, 3, 7);
     this.camera.lookAt(0, 0, 0);
 
-    // Ambient light: intensity 0.6
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Ambient light using intensity from GameConfig.environment
+    this.ambientLight = new THREE.AmbientLight(0xffffff, GameConfig.environment.ambientLightIntensity);
     this.scene.add(this.ambientLight);
 
-    // Directional light: intensity 1.0, position (50, 100, 50)
-    this.dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    // Directional light using intensity from GameConfig.environment
+    this.dirLight = new THREE.DirectionalLight(0xffffff, GameConfig.environment.dirLightIntensity);
     this.dirLight.position.set(50, 100, 50);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.width = 2048;
@@ -687,11 +704,12 @@ export class SimEngine {
       const targetPosition = this.droneMesh.position.clone().add(offset);
       this.camera.position.copy(targetPosition);
       
-      // Copy drone rotation and apply tilt down (rotation around local X-axis)
+      // Copy drone rotation and apply tilt UP relative to drone's nose
+      const tiltRad = cameraSettings.fpvTiltDegrees * (Math.PI / 180);
       const camQuat = this.droneMesh.quaternion.clone();
       const tiltQuat = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(1, 0, 0),
-        -cameraSettings.fpvTilt
+        tiltRad
       );
       camQuat.multiply(tiltQuat);
       this.camera.quaternion.copy(camQuat);
@@ -699,7 +717,7 @@ export class SimEngine {
       const offset = new THREE.Vector3(
         cameraSettings.chaseOffset[0],
         cameraSettings.chaseOffset[1],
-        cameraSettings.chaseOffset[2]
+        cameraSettings.chaseDistance
       );
       offset.applyQuaternion(this.droneMesh.quaternion);
       const targetPosition = this.droneMesh.position.clone().add(offset);
@@ -707,14 +725,19 @@ export class SimEngine {
       this.camera.quaternion.copy(this.droneMesh.quaternion);
     } else if (this.cameraMode === 'LOS') {
       const offset = new THREE.Vector3(
-        cameraSettings.losOffset[0],
-        cameraSettings.losOffset[1],
-        cameraSettings.losOffset[2]
+        0,
+        cameraSettings.losDistance * 0.5,
+        cameraSettings.losDistance
       );
       const targetPosition = this.droneMesh.position.clone().add(offset);
       this.camera.position.copy(targetPosition);
       this.camera.lookAt(this.droneMesh.position);
     }
+  }
+
+  public updateCamera() {
+    this.updateCameraFollow();
+    this.renderer.render(this.scene, this.camera);
   }
 
   private loop = () => {
