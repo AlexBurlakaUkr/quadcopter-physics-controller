@@ -304,11 +304,16 @@ function switchView(targetView: ViewName) {
   });
 
   // Manage SimEngine and background visuals
-  if (targetView === 'sim') {
+  if (targetView === 'sim' || targetView === 'builder') {
     ambientBg?.classList.add('hidden');
+    simEngine?.setViewMode(targetView === 'sim' ? 'simulator' : 'builder');
     simEngine?.start();
-    simEngine?.reset();
-    requestWakeLock();
+    if (targetView === 'sim') {
+      simEngine?.reset();
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
   } else {
     ambientBg?.classList.remove('hidden');
     simEngine?.stop();
@@ -375,7 +380,6 @@ function initLocalization() {
   const ctrlTitle = document.getElementById('ctrl-view-title');
   const ctrlDesc = document.getElementById('ctrl-view-desc');
   const buildTitle = document.getElementById('build-view-title');
-  const buildDesc = document.getElementById('build-view-desc');
   const knowTitle = document.getElementById('know-view-title');
   const knowDesc = document.getElementById('know-view-desc');
 
@@ -383,7 +387,20 @@ function initLocalization() {
   if (ctrlDesc) ctrlDesc.textContent = GameConfig.localization.comingSoon;
   
   if (buildTitle) buildTitle.textContent = GameConfig.localization.viewBuilderTitle;
-  if (buildDesc) buildDesc.textContent = GameConfig.localization.comingSoon;
+  const builderInstructions = document.getElementById('builder-instructions-text');
+  if (builderInstructions) builderInstructions.textContent = GameConfig.localization.builderInstructions;
+  const builderResetText = document.getElementById('builder-reset-text');
+  if (builderResetText) builderResetText.textContent = GameConfig.localization.builderReset;
+
+  const invMotorName = document.getElementById('inv-item-motor-name');
+  if (invMotorName) invMotorName.textContent = GameConfig.localization.invItemMotorName;
+  const invMotorDesc = document.getElementById('inv-item-motor-desc');
+  if (invMotorDesc) invMotorDesc.textContent = GameConfig.localization.invItemMotorDesc;
+
+  const invBatteryName = document.getElementById('inv-item-battery-name');
+  if (invBatteryName) invBatteryName.textContent = GameConfig.localization.invItemBatteryName;
+  const invBatteryDesc = document.getElementById('inv-item-battery-desc');
+  if (invBatteryDesc) invBatteryDesc.textContent = GameConfig.localization.invItemBatteryDesc;
 
   if (knowTitle) knowTitle.textContent = GameConfig.localization.viewKnowledgeTitle;
   if (knowDesc) knowDesc.textContent = GameConfig.localization.comingSoon;
@@ -754,6 +771,29 @@ function init() {
         }
       }
     }
+  });
+
+  // Builder Drag and Drop handlers (Phase 17)
+  const motorBtn = document.querySelector('[data-type="motor"]');
+  const batteryBtn = document.querySelector('[data-type="battery"]');
+
+  const onInventoryPointerDown = (e: PointerEvent, type: 'motor' | 'battery') => {
+    e.preventDefault();
+    if (simEngine && currentView === 'builder') {
+      simEngine.startDragging(type, e.clientX, e.clientY);
+    }
+  };
+
+  motorBtn?.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, 'motor'));
+  batteryBtn?.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, 'battery'));
+
+  // Reset Builder handler
+  const resetBuilderBtn = document.getElementById('btn-reset-builder');
+  resetBuilderBtn?.addEventListener('click', () => {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+    simEngine?.resetBuilder();
   });
 
   // Orientation and Resize listeners

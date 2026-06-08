@@ -270,15 +270,42 @@
         </div>
       </section>
 
-      <!-- ==================== PLACEHOLDER VIEW: DRONE BUILDER ==================== -->
+      <!-- ==================== DRONE BUILDER VIEW ==================== -->
       <section id="builder-view" class="app-view hidden-view">
-        <button id="btn-back-to-menu-build" class="glass-panel back-btn" aria-label="Назад в меню">
-          <span class="back-icon">←</span>
-          <span class="btn-text" id="back-btn-text-build">Назад в меню</span>
-        </button>
-        <div class="glass-panel placeholder-content-panel">
-          <h2 class="placeholder-title" id="build-view-title">Конструктор дрона</h2>
-          <p class="placeholder-desc" id="build-view-desc">Цей розділ знаходиться в розробці...</p>
+        <div class="builder-header-container">
+          <button id="btn-back-to-menu-build" class="glass-panel back-btn" aria-label="Назад в меню">
+            <span class="back-icon">←</span>
+            <span class="btn-text" id="back-btn-text-build">Назад в меню</span>
+          </button>
+          
+          <div class="glass-panel builder-instructions-panel">
+            <h2 class="builder-title" id="build-view-title">Конструктор дрона</h2>
+            <p class="builder-desc" id="builder-instructions-text">Перетягуйте компоненти з панелі на раму дрона для збірки.</p>
+          </div>
+          
+          <button id="btn-reset-builder" class="glass-panel builder-reset-btn" aria-label="Скинути збірку">
+            <span class="reset-icon">↺</span>
+            <span class="btn-text" id="builder-reset-text">Скинути</span>
+          </button>
+        </div>
+
+        <div class="builder-inventory-container">
+          <div id="builder-inventory" class="glass-panel inventory-panel">
+            <button class="inventory-item-btn" data-type="motor" draggable="false">
+              <div class="item-icon">⚙️</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-motor-name">Мотор 2806</span>
+                <span class="item-desc" id="inv-item-motor-desc">Для тяги</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="battery" draggable="false">
+              <div class="item-icon">🔋</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-battery-name">LiPo 6S</span>
+                <span class="item-desc" id="inv-item-battery-desc">Живлення</span>
+              </div>
+            </button>
+          </div>
         </div>
       </section>
 

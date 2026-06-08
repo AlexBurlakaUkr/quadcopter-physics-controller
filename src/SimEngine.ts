@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GameConfig } from './GameConfig';
 import { PIDController } from './PIDController';
 
@@ -10,6 +11,20 @@ export class SimEngine {
   private camera!: THREE.PerspectiveCamera;
   private gridHelper!: THREE.GridHelper;
   
+  // 3D Builder Scene State (Phase 17)
+  private viewMode: 'simulator' | 'builder' = 'simulator';
+  private builderScene!: THREE.Scene;
+  private builderCamera!: THREE.PerspectiveCamera;
+  private builderControls!: OrbitControls;
+  private builderFrameGroup!: THREE.Group;
+  private builderSlots: THREE.Mesh[] = [];
+  private draggedItem: THREE.Mesh | null = null;
+  private draggedItemType: 'motor' | 'battery' | null = null;
+  private snappedSlot: THREE.Mesh | null = null;
+  private raycaster = new THREE.Raycaster();
+  private dragPlane = new THREE.Plane();
+  private assembledParts: { slotId: string; mesh: THREE.Mesh }[] = [];
+
   // Lights
   private ambientLight!: THREE.AmbientLight;
   private dirLight!: THREE.DirectionalLight;
@@ -81,6 +96,7 @@ export class SimEngine {
     this.createDrone();
     this.createEnvironment();
     this.initFlightControllers();
+    this.initBuilder();
 
     // Listen to resize events
     window.addEventListener('resize', this.handleResize);
@@ -786,6 +802,12 @@ export class SimEngine {
 
     const deltaTime = Math.min(this.clock.getDelta(), 0.1);
 
+    if (this.viewMode === 'builder') {
+      this.builderControls?.update();
+      this.renderer.render(this.builderScene, this.builderCamera);
+      return;
+    }
+
     // --- PROPELLER ROTATION ANIMATION ---
     const normalizedThrottle = Math.max(0, (this.throttleInput + 1.0) / 2.0);
     const rotorSpeed = (0.08 + normalizedThrottle * 0.8) * (deltaTime * 60);
@@ -947,4 +969,275 @@ export class SimEngine {
     // Render Scene
     this.renderer.render(this.scene, this.camera);
   };
+
+  private initBuilder() {
+    this.builderScene = new THREE.Scene();
+
+    this.builderCamera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+    this.builderCamera.position.set(0, 1.0, 1.8);
+
+    this.builderControls = new OrbitControls(this.builderCamera, this.renderer.domElement);
+    this.builderControls.enableDamping = true;
+    this.builderControls.dampingFactor = 0.05;
+    this.builderControls.minDistance = 0.5;
+    this.builderControls.maxDistance = 5.0;
+    this.builderControls.target.set(0, 0, 0);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    this.builderScene.add(ambient);
+
+    const light1 = new THREE.PointLight(0x00f0ff, 1.8, 10);
+    light1.position.set(-3, 3, -3);
+    this.builderScene.add(light1);
+
+    const light2 = new THREE.PointLight(0xff00ff, 1.8, 10);
+    light2.position.set(3, 3, -3);
+    this.builderScene.add(light2);
+
+    const light3 = new THREE.PointLight(0xffffff, 2.0, 15);
+    light3.position.set(0, 5, 5);
+    this.builderScene.add(light3);
+
+    this.builderFrameGroup = new THREE.Group();
+    
+    const beamMat = new THREE.MeshStandardMaterial({
+      color: 0x2d3436,
+      roughness: 0.5,
+      metalness: 0.8
+    });
+    const beamGeom = new THREE.BoxGeometry(0.04, 0.03, 0.5);
+    
+    const beam1 = new THREE.Mesh(beamGeom, beamMat);
+    beam1.rotation.y = Math.PI / 4;
+    beam1.castShadow = true;
+    beam1.receiveShadow = true;
+
+    const beam2 = new THREE.Mesh(beamGeom, beamMat);
+    beam2.rotation.y = -Math.PI / 4;
+    beam2.castShadow = true;
+    beam2.receiveShadow = true;
+
+    const centerPlateGeom = new THREE.BoxGeometry(0.1, 0.04, 0.1);
+    const centerPlate = new THREE.Mesh(centerPlateGeom, beamMat);
+    centerPlate.castShadow = true;
+    centerPlate.receiveShadow = true;
+
+    this.builderFrameGroup.add(beam1);
+    this.builderFrameGroup.add(beam2);
+    this.builderFrameGroup.add(centerPlate);
+    this.builderScene.add(this.builderFrameGroup);
+
+    const slotGeom = new THREE.SphereGeometry(0.045, 16, 16);
+    
+    GameConfig.builder.slots.forEach(slotData => {
+      const slotMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.3,
+        wireframe: true
+      });
+      const slotMesh = new THREE.Mesh(slotGeom, slotMat);
+      slotMesh.position.set(slotData.position[0], slotData.position[1], slotData.position[2]);
+      slotMesh.userData = {
+        id: slotData.id,
+        type: slotData.type,
+        occupied: false
+      };
+      slotMesh.visible = false;
+      this.builderFrameGroup.add(slotMesh);
+      this.builderSlots.push(slotMesh);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (this.viewMode === 'builder' && this.draggedItem) {
+        this.updateDragPosition(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (this.viewMode === 'builder' && this.draggedItem) {
+        this.handlePointerUp();
+      }
+    });
+  }
+
+  public setViewMode(mode: 'simulator' | 'builder') {
+    this.viewMode = mode;
+    if (mode === 'builder') {
+      this.renderer.setClearColor(0x0a0f1d, 1);
+      this.builderCamera.aspect = window.innerWidth / window.innerHeight;
+      this.builderCamera.updateProjectionMatrix();
+    } else {
+      this.renderer.setClearColor(GameConfig.environment.fogColor, 1);
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  public startDragging(type: 'motor' | 'battery', clientX: number, clientY: number) {
+    if (this.draggedItem) {
+      this.builderScene.remove(this.draggedItem);
+    }
+
+    if (this.builderControls) {
+      this.builderControls.enabled = false;
+    }
+
+    let geom: THREE.BufferGeometry;
+    let mat: THREE.Material;
+
+    if (type === 'motor') {
+      geom = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
+      mat = new THREE.MeshStandardMaterial({
+        color: 0x00f0ff,
+        roughness: 0.3,
+        metalness: 0.8
+      });
+    } else {
+      geom = new THREE.BoxGeometry(0.08, 0.05, 0.15);
+      mat = new THREE.MeshStandardMaterial({
+        color: 0xe84118,
+        roughness: 0.5,
+        metalness: 0.2
+      });
+    }
+
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.builderScene.add(mesh);
+    
+    this.draggedItem = mesh;
+    this.draggedItemType = type;
+
+    this.builderSlots.forEach(slot => {
+      if (slot.userData.type === type && !slot.userData.occupied) {
+        slot.visible = true;
+        (slot.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+        (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
+      }
+    });
+
+    this.updateDragPosition(clientX, clientY);
+  }
+
+  private updateDragPosition(clientX: number, clientY: number) {
+    if (!this.draggedItem) return;
+
+    const mouse = new THREE.Vector2(
+      (clientX / window.innerWidth) * 2 - 1,
+      -(clientY / window.innerHeight) * 2 + 1
+    );
+
+    const cameraDirection = new THREE.Vector3();
+    this.builderCamera.getWorldDirection(cameraDirection);
+    cameraDirection.negate();
+    this.dragPlane.setFromNormalAndCoplanarPoint(cameraDirection, new THREE.Vector3(0, 0, 0));
+
+    this.raycaster.setFromCamera(mouse, this.builderCamera);
+    const intersection = new THREE.Vector3();
+    if (this.raycaster.ray.intersectPlane(this.dragPlane, intersection)) {
+      this.draggedItem.position.copy(intersection);
+    }
+
+    let closestSlot: THREE.Mesh | null = null;
+    let minDistance = GameConfig.builder.snapThreshold;
+
+    this.builderSlots.forEach(slot => {
+      if (slot.visible && slot.userData.type === this.draggedItemType && !slot.userData.occupied) {
+        const slotWorldPos = new THREE.Vector3();
+        slot.getWorldPosition(slotWorldPos);
+
+        const distance = this.draggedItem!.position.distanceTo(slotWorldPos);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestSlot = slot;
+        }
+
+        (slot.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+        (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
+      }
+    });
+
+    if (closestSlot) {
+      this.snappedSlot = closestSlot;
+      const slotWorldPos = new THREE.Vector3();
+      (closestSlot as THREE.Mesh).getWorldPosition(slotWorldPos);
+      this.draggedItem.position.copy(slotWorldPos);
+
+      ((closestSlot as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(0x00ffff);
+      ((closestSlot as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.8;
+    } else {
+      this.snappedSlot = null;
+    }
+  }
+
+  private handlePointerUp() {
+    if (!this.draggedItem) return;
+
+    if (this.builderControls) {
+      this.builderControls.enabled = true;
+    }
+
+    if (this.snappedSlot) {
+      const localPos = this.snappedSlot.position.clone();
+      this.builderScene.remove(this.draggedItem);
+      this.draggedItem.position.copy(localPos);
+      this.builderFrameGroup.add(this.draggedItem);
+
+      this.assembledParts.push({
+        slotId: this.snappedSlot.userData.id,
+        mesh: this.draggedItem
+      });
+
+      this.snappedSlot.userData.occupied = true;
+
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate(20);
+      }
+    } else {
+      this.builderScene.remove(this.draggedItem);
+      this.draggedItem.geometry.dispose();
+      if (Array.isArray(this.draggedItem.material)) {
+        this.draggedItem.material.forEach(m => m.dispose());
+      } else {
+        this.draggedItem.material.dispose();
+      }
+    }
+
+    this.builderSlots.forEach(slot => {
+      slot.visible = false;
+    });
+
+    this.draggedItem = null;
+    this.draggedItemType = null;
+    this.snappedSlot = null;
+  }
+
+  public resetBuilder() {
+    this.assembledParts.forEach(part => {
+      this.builderFrameGroup.remove(part.mesh);
+      part.mesh.geometry.dispose();
+      if (Array.isArray(part.mesh.material)) {
+        part.mesh.material.forEach(m => m.dispose());
+      } else {
+        part.mesh.material.dispose();
+      }
+    });
+    this.assembledParts = [];
+
+    this.builderSlots.forEach(slot => {
+      slot.userData.occupied = false;
+      slot.visible = false;
+    });
+
+    if (this.builderControls) {
+      this.builderControls.reset();
+    }
+  }
 }

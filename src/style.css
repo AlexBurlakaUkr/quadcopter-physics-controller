@@ -1724,3 +1724,220 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================================================
+   DRONE BUILDER VIEW STYLES (Phase 17)
+   ========================================================================= */
+
+.builder-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));
+  box-sizing: border-box;
+  z-index: 10;
+  gap: 16px;
+}
+
+.builder-instructions-panel {
+  flex-grow: 1;
+  max-width: 500px;
+  padding: 12px 20px;
+  margin: 0 auto;
+  text-align: center;
+  background: rgba(10, 15, 30, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.builder-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  background: linear-gradient(135deg, #ffffff 40%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.builder-desc {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.builder-reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.builder-reset-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-purple);
+  box-shadow: 0 4px 15px var(--accent-glow-purple);
+  transform: translateY(-1px);
+}
+
+.builder-reset-btn:active {
+  transform: translateY(1px);
+}
+
+/* Horizontal scrolling inventory container */
+.builder-inventory-container {
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+
+.inventory-panel {
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px;
+  overflow-x: auto;
+  max-width: 600px;
+  width: 100%;
+  background: rgba(10, 15, 30, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.inventory-panel::-webkit-scrollbar {
+  height: 6px;
+}
+
+.inventory-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inventory-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+/* Inventory item buttons */
+.inventory-item-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--text-primary);
+  cursor: grab;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  user-select: none;
+  touch-action: none; /* Crucial for custom touch drag */
+}
+
+.inventory-item-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 4px 15px var(--accent-glow-cyan);
+  transform: translateY(-2px);
+}
+
+.inventory-item-btn:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.item-icon {
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.item-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.item-desc {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 800px) {
+  .builder-header-container {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .builder-instructions-panel {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    padding: 8px 12px;
+  }
+
+  .builder-title {
+    font-size: 16px;
+  }
+
+  .builder-desc {
+    font-size: 10px;
+  }
+
+  .inventory-panel {
+    padding: 10px 16px;
+    gap: 12px;
+  }
+
+  .inventory-item-btn {
+    padding: 8px 14px;
+  }
+
+  .item-icon {
+    font-size: 18px;
+    padding: 4px;
+  }
+
+  .item-name {
+    font-size: 12px;
+  }
+}

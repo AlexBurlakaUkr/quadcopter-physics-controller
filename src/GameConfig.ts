@@ -62,6 +62,18 @@ export const GameConfig = {
     }
   },
 
+  // 3D Builder Configurations (Data-Driven Phase 17)
+  builder: {
+    snapThreshold: 0.5,
+    slots: [
+      { id: 'motor_fr', type: 'motor', position: [0.177, 0.015, -0.177] as [number, number, number] },
+      { id: 'motor_fl', type: 'motor', position: [-0.177, 0.015, -0.177] as [number, number, number] },
+      { id: 'motor_br', type: 'motor', position: [0.177, 0.015, 0.177] as [number, number, number] },
+      { id: 'motor_bl', type: 'motor', position: [-0.177, 0.015, 0.177] as [number, number, number] },
+      { id: 'battery_center', type: 'battery', position: [0.0, 0.035, 0.0] as [number, number, number] },
+    ],
+  },
+
   // Localization strings
   localization: {
     title: "FPV Academy",
@@ -102,6 +114,14 @@ export const GameConfig = {
     lblFPVTilt: "FPV Кут Нахилу",
     lblLeftJoystickX: "Лівий стік X-зсув",
     lblRightJoystickX: "Правий стік X-зсув",
+
+    // Builder localizations
+    builderInstructions: "Перетягуйте компоненти з панелі на раму дрона для збірки.",
+    builderReset: "Скинути",
+    invItemMotorName: "Мотор 2806",
+    invItemMotorDesc: "Для тяги",
+    invItemBatteryName: "LiPo 6S",
+    invItemBatteryDesc: "Живлення",
   }
 };
 
