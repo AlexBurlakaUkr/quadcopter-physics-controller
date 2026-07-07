@@ -20,12 +20,14 @@ export class SimEngine {
   private builderFrameGroup!: THREE.Group;
   private builderSlots: THREE.Mesh[] = [];
   private draggedItem: THREE.Object3D | null = null;
-  private draggedItemType: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | null = null;
+  private draggedItemType: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | 'arm' | 'vtx' | 'rx' | 'top_deck' | null = null;
   private snappedSlot: THREE.Mesh | null = null;
+  private hasCelebrated = false;
+  private isCelebratingRotation = false;
+  public currentStepIndex = 0;
   private raycaster = new THREE.Raycaster();
   private dragPlane = new THREE.Plane();
   private assembledParts: { slotId: string; mesh: THREE.Object3D }[] = [];
-  private attemptedBlockedSlot: THREE.Mesh | null = null;
   private toastTimeout: number | null = null;
 
   // Lights
@@ -40,6 +42,7 @@ export class SimEngine {
 
   // Crash event callback
   public onCrash: (() => void) | null = null;
+  public onStepChange: ((index: number) => void) | null = null;
 
   // Active Spark Particles
   private activeSparks: {
@@ -389,10 +392,10 @@ export class SimEngine {
     this.droneRotors = [];
 
     const rotorPositions = [
-      { x: 0.177, y: 0.03, z: -0.177 },
-      { x: -0.177, y: 0.03, z: -0.177 },
-      { x: -0.177, y: 0.03, z: 0.177 },
-      { x: 0.177, y: 0.03, z: 0.177 }
+      { x: 0.1498, y: 0.073, z: -0.2345 },
+      { x: -0.1498, y: 0.073, z: -0.2345 },
+      { x: -0.1498, y: 0.073, z: 0.2345 },
+      { x: 0.1498, y: 0.073, z: 0.2345 }
     ];
 
     rotorPositions.forEach((pos) => {
@@ -658,10 +661,16 @@ export class SimEngine {
   }
 
   private handleResize = () => {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    const aspect = window.innerWidth / window.innerHeight;
+    this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
+    if (this.builderCamera) {
+      this.builderCamera.aspect = aspect;
+      this.builderCamera.updateProjectionMatrix();
+    }
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
+
 
   private syncMeshWithPhysics() {
     this.droneMesh.position.copy(this.droneBody.position as any);
@@ -809,6 +818,18 @@ export class SimEngine {
 
     if (this.viewMode === 'builder') {
       this.builderControls?.update();
+
+      if (this.isCelebratingRotation) {
+        const rotorSpeed = 0.25;
+        this.assembledParts.forEach(part => {
+          if (part.slotId.startsWith('propeller_')) {
+            const suffix = part.slotId.split('_')[1]; // fr, fl, br, bl
+            const dir = (suffix === 'fr' || suffix === 'bl') ? 1 : -1;
+            part.mesh.rotation.y += dir * rotorSpeed;
+          }
+        });
+      }
+
       this.renderer.render(this.builderScene, this.builderCamera);
       return;
     }
@@ -1019,29 +1040,8 @@ export class SimEngine {
 
     this.builderFrameGroup = new THREE.Group();
     
-    const beamMat = new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      roughness: 0.95,
-      metalness: 0.1
-    });
-    const beamGeom = new THREE.BoxGeometry(0.04, 0.03, 0.5);
-    
-    const beam1 = new THREE.Mesh(beamGeom, beamMat);
-    beam1.rotation.y = Math.PI / 4;
-    beam1.castShadow = true;
-    beam1.receiveShadow = true;
-
-    const beam2 = new THREE.Mesh(beamGeom, beamMat);
-    beam2.rotation.y = -Math.PI / 4;
-    beam2.castShadow = true;
-    beam2.receiveShadow = true;
-
-    const centerPlateGeom = new THREE.BoxGeometry(0.1, 0.04, 0.1);
-    const centerPlate = new THREE.Mesh(centerPlateGeom, beamMat);
-    centerPlate.castShadow = true;
-    centerPlate.receiveShadow = true;
-
     // Rectangular flat carbon black deck (Task 2)
+    // Deconstructed initial frame: ONLY contains the Bottom Deck plate.
     const deckGeom = new THREE.BoxGeometry(BUILDER_CONFIG.deckWidth, BUILDER_CONFIG.deckHeight, BUILDER_CONFIG.deckDepth);
     const deckMat = new THREE.MeshStandardMaterial({
       color: 0x000000,
@@ -1053,20 +1053,13 @@ export class SimEngine {
     deckMesh.castShadow = true;
     deckMesh.receiveShadow = true;
 
-    this.builderFrameGroup.add(beam1);
-    this.builderFrameGroup.add(beam2);
-    this.builderFrameGroup.add(centerPlate);
     this.builderFrameGroup.add(deckMesh);
     this.builderScene.add(this.builderFrameGroup);
 
     const slotGeom = new THREE.SphereGeometry(0.045, 16, 16);
     
     GameConfig.builder.slots.forEach(slotData => {
-      let slotColor = 0x00ff00;
-      if (slotData.type === 'camera') slotColor = 0x0984e3;
-      else if (slotData.type === 'esc') slotColor = 0x6c5ce7;
-      else if (slotData.type === 'fc') slotColor = 0xe17055;
-      else if (slotData.type === 'propeller') slotColor = 0x00d2d3;
+      const slotColor = this.getSlotColor(slotData.type);
 
       const slotMat = new THREE.MeshBasicMaterial({
         color: slotColor,
@@ -1079,22 +1072,53 @@ export class SimEngine {
       let y = slotData.position[1];
       let z = slotData.position[2];
 
-      // Dynamically override slot spacing based on BUILDER_CONFIG (Task 1)
-      if (slotData.id === 'camera_front') {
+      // Dynamically override slot spacing based on BUILDER_CONFIG (Phase 23)
+      if (slotData.id.startsWith('arm_') || slotData.id.startsWith('motor_') || slotData.id.startsWith('propeller_')) {
+        const suffix = slotData.id.split('_')[1]; // fr, fl, br, bl
+        const sx = suffix.includes('r') ? 1 : -1;
+        const sz = suffix.includes('b') ? 1 : -1;
+        const zShift = 0.040;
+
+        if (slotData.id.startsWith('arm_')) {
+          x = sx * (BUILDER_CONFIG.deckWidth / 2 + 0.022);
+          y = BUILDER_CONFIG.deckYOffset;
+          z = sz * (BUILDER_CONFIG.deckDepth / 3) + sz * zShift;
+        } else if (slotData.id.startsWith('motor_')) {
+          x = sx * 0.1498;
+          y = 0.0378; // Sit on top of the arm
+          z = sz * 0.1945 + sz * zShift;
+        } else {
+          x = sx * 0.1498;
+          y = 0.073; // Sit on top of the motor
+          z = sz * 0.1945 + sz * zShift;
+        }
+      } else if (slotData.id === 'camera_front') {
         x = 0;
-        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
-        z = -BUILDER_CONFIG.deckDepth / 2;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.025;
+        z = -BUILDER_CONFIG.deckDepth / 2 - 0.015;
       } else if (slotData.id === 'fc_top') {
         x = 0;
-        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
-        z = -BUILDER_CONFIG.deckDepth * 0.22;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.024;
+        z = 0;
       } else if (slotData.id === 'esc_bottom') {
         x = 0;
-        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.005;
-        z = BUILDER_CONFIG.deckDepth * 0.22;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.004;
+        z = 0;
+      } else if (slotData.id === 'vtx_slot') {
+        x = 0;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.004;
+        z = -BUILDER_CONFIG.deckDepth * 0.25;
+      } else if (slotData.id === 'rx_slot') {
+        x = 0;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.003;
+        z = BUILDER_CONFIG.deckDepth * 0.43;
+      } else if (slotData.id === 'top_deck_slot') {
+        x = 0;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.045;
+        z = 0;
       } else if (slotData.id === 'battery_center') {
         x = 0;
-        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.03;
+        y = BUILDER_CONFIG.deckYOffset + BUILDER_CONFIG.deckHeight / 2 + 0.075;
         z = 0;
       }
 
@@ -1138,7 +1162,7 @@ export class SimEngine {
     }
   }
 
-  public startDragging(type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller', clientX: number, clientY: number) {
+  public startDragging(type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | 'arm' | 'vtx' | 'rx' | 'top_deck', clientX: number, clientY: number) {
     if (this.draggedItem) {
       this.builderScene.remove(this.draggedItem);
       this.disposeObject3D(this.draggedItem);
@@ -1150,8 +1174,19 @@ export class SimEngine {
 
     let itemObject: THREE.Object3D;
 
-    if (type === 'motor') {
-      const geom = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
+    if (type === 'arm') {
+      const armGeom = new THREE.BoxGeometry(0.035, 0.015, 0.22);
+      const armMat = new THREE.MeshStandardMaterial({
+        color: 0x111111, // Carbon fiber black
+        roughness: 0.95,
+        metalness: 0.1
+      });
+      const mesh = new THREE.Mesh(armGeom, armMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      itemObject = mesh;
+    } else if (type === 'motor') {
+      const geom = new THREE.CylinderGeometry(0.046, 0.046, 0.0385, 16);
       const mat = new THREE.MeshStandardMaterial({
         color: 0x00f0ff,
         roughness: 0.3,
@@ -1223,6 +1258,73 @@ export class SimEngine {
         fcGroup.add(pin);
       });
       itemObject = fcGroup;
+    } else if (type === 'vtx') {
+      const vtxGroup = new THREE.Group();
+      const vtxGeom = new THREE.BoxGeometry(0.05, 0.008, 0.05);
+      const vtxMat = new THREE.MeshStandardMaterial({ color: 0x8e44ad, roughness: 0.6 }); // Purple board
+      const vtxMesh = new THREE.Mesh(vtxGeom, vtxMat);
+      vtxMesh.castShadow = true;
+      vtxMesh.receiveShadow = true;
+      vtxGroup.add(vtxMesh);
+      // connector
+      const connGeom = new THREE.CylinderGeometry(0.005, 0.005, 0.015, 8);
+      const connMat = new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.2, metalness: 0.8 }); // Copper
+      const connMesh = new THREE.Mesh(connGeom, connMat);
+      connMesh.rotation.x = Math.PI / 2;
+      connMesh.position.set(0, 0.005, 0.025);
+      vtxGroup.add(connMesh);
+      itemObject = vtxGroup;
+    } else if (type === 'rx') {
+      const rxGroup = new THREE.Group();
+      const rxGeom = new THREE.BoxGeometry(0.04, 0.006, 0.04);
+      const rxMat = new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.7 }); // Orange board
+      const rxMesh = new THREE.Mesh(rxGeom, rxMat);
+      rxMesh.castShadow = true;
+      rxMesh.receiveShadow = true;
+      rxGroup.add(rxMesh);
+
+      // Antenna base assembly
+      const antennaGroup = new THREE.Group();
+
+      // Thin cylinder antenna
+      const antGeom = new THREE.CylinderGeometry(0.002, 0.002, 0.08, 8);
+      const antMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.9 });
+      const antMesh = new THREE.Mesh(antGeom, antMat);
+      antMesh.castShadow = true;
+      antMesh.receiveShadow = true;
+      antMesh.position.set(0, 0.04, 0);
+      antennaGroup.add(antMesh);
+
+      // Lollipop Sphere at the very tip (Task 2)
+      const bulbGeom = new THREE.SphereGeometry(0.012, 16, 16);
+      const bulbMat = new THREE.MeshStandardMaterial({ color: 0xd30808, roughness: 0.2, metalness: 0.8 }); // Red cherry
+      const bulbMesh = new THREE.Mesh(bulbGeom, bulbMat);
+      bulbMesh.castShadow = true;
+      bulbMesh.receiveShadow = true;
+      bulbMesh.position.set(0, 0.08, 0);
+      antennaGroup.add(bulbMesh);
+
+      // Angle 50 degrees backward locally (towards local +Z, so rotation.x is negative)
+      // When the board is rotated 180 degrees (Math.PI) globally, local +Z points towards global +Z (backward, away from drone)
+      antennaGroup.rotation.x = Math.PI * -0.27; // 50 degrees backwards
+      antennaGroup.position.set(0, 0.003, 0.015);
+      rxGroup.add(antennaGroup);
+
+      // Rotate entire board 180 degrees
+      rxGroup.rotation.y = Math.PI;
+
+      itemObject = rxGroup;
+    } else if (type === 'top_deck') {
+      const topGeom = new THREE.BoxGeometry(BUILDER_CONFIG.deckWidth, BUILDER_CONFIG.deckHeight, BUILDER_CONFIG.deckDepth * 0.9);
+      const topMat = new THREE.MeshStandardMaterial({
+        color: 0x111111, // Carbon fiber black
+        roughness: 0.95,
+        metalness: 0.1
+      });
+      const topMesh = new THREE.Mesh(topGeom, topMat);
+      topMesh.castShadow = true;
+      topMesh.receiveShadow = true;
+      itemObject = topMesh;
     } else {
       // type === 'propeller'
       const propGroup = new THREE.Group();
@@ -1261,12 +1363,7 @@ export class SimEngine {
     this.builderSlots.forEach(slot => {
       if (slot.userData.type === type && !slot.userData.occupied) {
         slot.visible = true;
-        let slotColor = 0x00ff00;
-        if (slot.userData.type === 'camera') slotColor = 0x0984e3;
-        else if (slot.userData.type === 'esc') slotColor = 0x6c5ce7;
-        else if (slot.userData.type === 'fc') slotColor = 0xe17055;
-        else if (slot.userData.type === 'propeller') slotColor = 0x00d2d3;
-        
+        const slotColor = this.getSlotColor(slot.userData.type);
         (slot.material as THREE.MeshBasicMaterial).color.setHex(slotColor);
         (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
       }
@@ -1274,6 +1371,7 @@ export class SimEngine {
 
     this.updateDragPosition(clientX, clientY);
   }
+
 
   private updateDragPosition(clientX: number, clientY: number) {
     if (!this.draggedItem) return;
@@ -1296,49 +1394,23 @@ export class SimEngine {
 
     let closestSlot: THREE.Mesh | null = null;
     let minDistance = GameConfig.builder.snapThreshold;
-    this.attemptedBlockedSlot = null;
 
-    this.builderSlots.forEach(slot => {
+    for (const slot of this.builderSlots) {
       if (slot.visible && slot.userData.type === this.draggedItemType && !slot.userData.occupied) {
         const slotWorldPos = new THREE.Vector3();
         slot.getWorldPosition(slotWorldPos);
 
         const distance = this.draggedItem!.position.distanceTo(slotWorldPos);
         if (distance < minDistance) {
-          // Check mechanical assembly dependencies (Task 4)
-          let dependencyMet = true;
-          if (this.draggedItemType === 'propeller') {
-            const suffix = slot.userData.id.split('_')[1];
-            const motorSlot = this.builderSlots.find(s => s.userData.id === `motor_${suffix}`);
-            if (!motorSlot || !motorSlot.userData.occupied) {
-              dependencyMet = false;
-            }
-          } else if (this.draggedItemType === 'battery') {
-            const fcSlot = this.builderSlots.find(s => s.userData.type === 'fc');
-            const escSlot = this.builderSlots.find(s => s.userData.type === 'esc');
-            if (!fcSlot || !fcSlot.userData.occupied || !escSlot || !escSlot.userData.occupied) {
-              dependencyMet = false;
-            }
-          }
-
-          if (dependencyMet) {
-            minDistance = distance;
-            closestSlot = slot;
-          } else {
-            this.attemptedBlockedSlot = slot;
-          }
+          minDistance = distance;
+          closestSlot = slot;
         }
 
-        let slotColor = 0x00ff00;
-        if (slot.userData.type === 'camera') slotColor = 0x0984e3;
-        else if (slot.userData.type === 'esc') slotColor = 0x6c5ce7;
-        else if (slot.userData.type === 'fc') slotColor = 0xe17055;
-        else if (slot.userData.type === 'propeller') slotColor = 0x00d2d3;
-
+        const slotColor = this.getSlotColor(slot.userData.type);
         (slot.material as THREE.MeshBasicMaterial).color.setHex(slotColor);
         (slot.material as THREE.MeshBasicMaterial).opacity = 0.3;
       }
-    });
+    }
 
     if (closestSlot) {
       this.snappedSlot = closestSlot;
@@ -1346,10 +1418,23 @@ export class SimEngine {
       (closestSlot as THREE.Mesh).getWorldPosition(slotWorldPos);
       this.draggedItem.position.copy(slotWorldPos);
 
+      // Rotate arm properly when snapped!
+      if (this.draggedItemType === 'arm') {
+        const slotId = closestSlot.userData.id;
+        if (slotId === 'arm_fr' || slotId === 'arm_bl') {
+          this.draggedItem.rotation.y = -Math.PI / 4;
+        } else {
+          this.draggedItem.rotation.y = Math.PI / 4;
+        }
+      }
+
       ((closestSlot as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(0x00ffff);
       ((closestSlot as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.8;
     } else {
       this.snappedSlot = null;
+      if (this.draggedItemType === 'arm') {
+        this.draggedItem.rotation.y = 0;
+      }
     }
   }
 
@@ -1364,6 +1449,16 @@ export class SimEngine {
       const localPos = this.snappedSlot.position.clone();
       this.builderScene.remove(this.draggedItem);
       this.draggedItem.position.copy(localPos);
+
+      // Rotate arm properly when snapped!
+      if (this.draggedItemType === 'arm') {
+        const slotId = this.snappedSlot.userData.id;
+        if (slotId === 'arm_fr' || slotId === 'arm_bl') {
+          this.draggedItem.rotation.y = -Math.PI / 4;
+        } else {
+          this.draggedItem.rotation.y = Math.PI / 4;
+        }
+      }
       
       // Update mesh colors when dropped (Task 2)
       this.draggedItem.traverse((child) => {
@@ -1375,8 +1470,17 @@ export class SimEngine {
             mat.transparent = false;
           } else if (this.draggedItemType === 'motor') {
             mat.color.setHex(0x00008b); // Dark Blue
-          } else if (this.draggedItemType === 'fc' || this.draggedItemType === 'esc') {
-            mat.color.setHex(0x008000); // Flat Green
+          } else if (this.draggedItemType === 'arm') {
+            mat.color.setHex(0x333333); // Carbon Dark Gray
+          } else if (this.draggedItemType === 'top_deck') {
+            mat.color.setHex(0x222222); // Matte Carbon Black
+          } else if (
+            this.draggedItemType === 'fc' ||
+            this.draggedItemType === 'esc' ||
+            this.draggedItemType === 'vtx' ||
+            this.draggedItemType === 'rx'
+          ) {
+            mat.color.setHex(0x008000); // PCB Green
           }
         }
       });
@@ -1395,17 +1499,26 @@ export class SimEngine {
       }
 
       this.updateAssemblyProgressTracker();
-    } else {
-      // Trigger toast popup if snap was blocked by dependency check (Task 4)
-      if (this.attemptedBlockedSlot) {
-        const loc = GameConfig.localization;
-        if (this.draggedItemType === 'propeller') {
-          this.showToast(loc.toastNeedMotor || "Спочатку встановіть двигун!");
-        } else if (this.draggedItemType === 'battery') {
-          this.showToast(loc.toastNeedElectronics || "Спочатку встановіть електроніку (FC та ESC)!");
+
+      // Check if current step index needs to be incremented (Phase 23)
+      const steps = ['arm', 'esc', 'fc', 'camera', 'vtx', 'rx', 'motor', 'top_deck', 'battery', 'propeller'];
+      const currentType = steps[this.currentStepIndex];
+      const requiredCount = (currentType === 'arm' || currentType === 'motor' || currentType === 'propeller') ? 4 : 1;
+
+      const occupiedCount = this.builderSlots.filter(s => s.userData.type === currentType && s.userData.occupied).length;
+      if (occupiedCount >= requiredCount) {
+        this.currentStepIndex++;
+        this.updateAssemblyProgressTracker();
+        if (this.onStepChange) {
+          this.onStepChange(this.currentStepIndex);
         }
       }
 
+      // Check if completely assembled
+      if (this.currentStepIndex >= 10 || this.builderSlots.every(slot => slot.userData.occupied)) {
+        this.celebrateBuild();
+      }
+    } else {
       this.builderScene.remove(this.draggedItem);
       this.disposeObject3D(this.draggedItem);
     }
@@ -1438,17 +1551,25 @@ export class SimEngine {
       this.disposeObject3D(part.mesh);
     });
     this.assembledParts = [];
+    this.hasCelebrated = false;
+    this.isCelebratingRotation = false;
+    this.currentStepIndex = 0;
+
+    if (this.builderControls) {
+      this.builderControls.autoRotate = false;
+      this.builderControls.reset();
+    }
 
     this.builderSlots.forEach(slot => {
       slot.userData.occupied = false;
       slot.visible = false;
     });
 
-    if (this.builderControls) {
-      this.builderControls.reset();
-    }
-
     this.updateAssemblyProgressTracker();
+
+    if (this.onStepChange) {
+      this.onStepChange(this.currentStepIndex);
+    }
   }
 
   private showToast(message: string) {
@@ -1473,11 +1594,15 @@ export class SimEngine {
 
   private updateAssemblyProgressTracker() {
     const counts = {
+      arm: 0,
       motor: 0,
-      propeller: 0,
-      fc: 0,
       esc: 0,
+      fc: 0,
+      vtx: 0,
+      rx: 0,
       camera: 0,
+      top_deck: 0,
+      propeller: 0,
       battery: 0
     };
 
@@ -1491,18 +1616,221 @@ export class SimEngine {
     });
 
     const loc = GameConfig.localization;
+    const armsEl = document.getElementById('tracker-arms');
     const motorsEl = document.getElementById('tracker-motors');
-    const propsEl = document.getElementById('tracker-propellers');
-    const fcEl = document.getElementById('tracker-fc');
     const escEl = document.getElementById('tracker-esc');
+    const fcEl = document.getElementById('tracker-fc');
+    const vtxEl = document.getElementById('tracker-vtx');
+    const rxEl = document.getElementById('tracker-rx');
     const cameraEl = document.getElementById('tracker-camera');
+    const topDeckEl = document.getElementById('tracker-topdeck');
+    const propsEl = document.getElementById('tracker-propellers');
     const batteryEl = document.getElementById('tracker-battery');
 
+    if (armsEl) armsEl.textContent = `${loc.trackerArms}: ${counts.arm}/4`;
     if (motorsEl) motorsEl.textContent = `${loc.trackerMotors}: ${counts.motor}/4`;
-    if (propsEl) propsEl.textContent = `${loc.trackerPropellers}: ${counts.propeller}/4`;
-    if (fcEl) fcEl.textContent = `${loc.trackerFC}: ${counts.fc}/1`;
     if (escEl) escEl.textContent = `${loc.trackerESC}: ${counts.esc}/1`;
+    if (fcEl) fcEl.textContent = `${loc.trackerFC}: ${counts.fc}/1`;
+    if (vtxEl) vtxEl.textContent = `${loc.trackerVTX}: ${counts.vtx}/1`;
+    if (rxEl) rxEl.textContent = `${loc.trackerRX}: ${counts.rx}/1`;
     if (cameraEl) cameraEl.textContent = `${loc.trackerCamera}: ${counts.camera}/1`;
+    if (topDeckEl) topDeckEl.textContent = `${loc.trackerTopDeck}: ${counts.top_deck}/1`;
+    if (propsEl) propsEl.textContent = `${loc.trackerPropellers}: ${counts.propeller}/4`;
     if (batteryEl) batteryEl.textContent = `${loc.trackerBattery}: ${counts.battery}/1`;
+
+    // Apply active-build-step class dynamically to current step (Phase 23)
+    const spans = [armsEl, escEl, fcEl, cameraEl, vtxEl, rxEl, motorsEl, topDeckEl, batteryEl, propsEl];
+    spans.forEach((span, idx) => {
+      if (span) {
+        if (idx === this.currentStepIndex) {
+          span.classList.add('active-build-step');
+        } else {
+          span.classList.remove('active-build-step');
+        }
+      }
+    });
+  }
+
+  private getSlotColor(type: string): number {
+    switch (type) {
+      case 'arm': return 0xffd700; // Gold
+      case 'motor': return 0x3498db; // Sky Blue
+      case 'camera': return 0x0984e3; // Blue
+      case 'esc': return 0x6c5ce7; // Purple
+      case 'fc': return 0xe17055; // Orange-Red
+      case 'vtx': return 0x9b59b6; // Amethyst Purple
+      case 'rx': return 0xe67e22; // Carrot Orange
+      case 'top_deck': return 0x95a5a6; // Silver/Gray
+      case 'propeller': return 0x00d2d3; // Cyan
+      case 'battery': return 0xe74c3c; // Alizarin Red
+      default: return 0x00ff00;
+    }
+  }
+
+  private playESCTones() {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const playBeep = (freq: number, start: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        
+        gain.gain.setValueAtTime(0.08, start);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+      
+      let now = ctx.currentTime;
+      playBeep(800, now + 0.1, 0.12);
+      playBeep(800, now + 0.3, 0.12);
+      playBeep(800, now + 0.5, 0.12);
+      playBeep(400, now + 0.75, 0.25);
+      playBeep(1200, now + 1.05, 0.40);
+    } catch (err) {
+      console.error("Web Audio ESC startup tones failed:", err);
+    }
+  }
+
+  private celebrateBuild() {
+    if (this.hasCelebrated) return;
+    this.hasCelebrated = true;
+
+    // 1. Play synthesized BLHeli tones
+    this.playESCTones();
+
+    // 2. Confetti Upward Sparkle FX
+    const particleGroup = new THREE.Group();
+    const particleCount = 120;
+    const geometry = new THREE.BufferGeometry();
+
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const velocities: THREE.Vector3[] = [];
+
+    const colorPalette = [
+      new THREE.Color(0xff7675), // soft red
+      new THREE.Color(0x74b9ff), // soft blue
+      new THREE.Color(0x55efc4), // soft green
+      new THREE.Color(0xffeaa7), // soft yellow
+      new THREE.Color(0xa29bfe), // soft purple
+      new THREE.Color(0xfd79a8)  // pink
+    ];
+
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = 0;
+      positions[i * 3 + 1] = 0.090; // center of drone / battery height
+      positions[i * 3 + 2] = 0;
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.6 + Math.random() * 1.8;
+      const ySpeed = 1.2 + Math.random() * 2.5;
+
+      velocities.push(new THREE.Vector3(
+        Math.cos(angle) * speed,
+        ySpeed,
+        Math.sin(angle) * speed
+      ));
+
+      const randomColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      colors[i * 3] = randomColor.r;
+      colors[i * 3 + 1] = randomColor.g;
+      colors[i * 3 + 2] = randomColor.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    // Dynamic clean round particle texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 16, 16);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const material = new THREE.PointsMaterial({
+      size: 0.12,
+      vertexColors: true,
+      transparent: true,
+      opacity: 1.0,
+      map: texture,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    particleGroup.add(points);
+    this.builderScene.add(particleGroup);
+
+    let elapsed = 0;
+    const duration = 3.0;
+    const clock = new THREE.Clock();
+
+    const animateConfetti = () => {
+      const dt = clock.getDelta();
+      elapsed += dt;
+
+      if (elapsed >= duration) {
+        this.builderScene.remove(particleGroup);
+        points.geometry.dispose();
+        material.dispose();
+        texture.dispose();
+        return;
+      }
+
+      const posAttr = points.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const posArr = posAttr.array as Float32Array;
+
+      for (let i = 0; i < particleCount; i++) {
+        const vel = velocities[i];
+        vel.y -= 2.2 * dt; // Gravity
+        posArr[i * 3] += vel.x * dt;
+        posArr[i * 3 + 1] += vel.y * dt;
+        posArr[i * 3 + 2] += vel.z * dt;
+      }
+
+      posAttr.needsUpdate = true;
+      material.opacity = Math.max(0, 1.0 - (elapsed / duration));
+
+      requestAnimationFrame(animateConfetti);
+    };
+
+    clock.start();
+    requestAnimationFrame(animateConfetti);
+
+    // 3. Cinematic Auto-Rotate Win State (Phase 23)
+    this.isCelebratingRotation = true;
+    if (this.builderControls) {
+      this.builderControls.autoRotate = true;
+      this.builderControls.autoRotateSpeed = 3.0;
+    }
+
+    const stopAutoRotate = () => {
+      if (this.builderControls) {
+        this.builderControls.autoRotate = false;
+      }
+      this.canvas.removeEventListener('pointerdown', stopAutoRotate);
+      this.canvas.removeEventListener('touchstart', stopAutoRotate);
+    };
+    this.canvas.addEventListener('pointerdown', stopAutoRotate);
+    this.canvas.addEventListener('touchstart', stopAutoRotate);
+
+    this.showToast("Збірка дрона успішно завершена! 🚀✨");
   }
 }
+

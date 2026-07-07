@@ -248,6 +248,25 @@ let joystickLeft: VirtualJoystick | null = null;
 let joystickRight: VirtualJoystick | null = null;
 let fadeOverlay: HTMLElement | null = null;
 
+const BUILD_STEPS = ['arm', 'esc', 'fc', 'camera', 'vtx', 'rx', 'motor', 'top_deck', 'battery', 'propeller'];
+
+function updateInventoryLockout(stepIndex: number) {
+  const activeType = BUILD_STEPS[stepIndex] || '';
+  const inventoryPanel = document.getElementById('builder-inventory');
+  const inventoryBtns = inventoryPanel?.querySelectorAll('.inventory-item-btn');
+  inventoryBtns?.forEach(btn => {
+    const type = btn.getAttribute('data-type');
+    const htmlBtn = btn as HTMLButtonElement;
+    if (type === activeType) {
+      htmlBtn.style.opacity = '1.0';
+      htmlBtn.style.pointerEvents = 'auto';
+    } else {
+      htmlBtn.style.opacity = '0.4';
+      htmlBtn.style.pointerEvents = 'none';
+    }
+  });
+}
+
 function transitionToView(viewName: ViewName, shouldFullscreen: boolean = false) {
   if (!fadeOverlay) {
     if (shouldFullscreen && document.documentElement.requestFullscreen) {
@@ -313,6 +332,7 @@ function switchView(targetView: ViewName) {
       requestWakeLock();
     } else {
       releaseWakeLock();
+      updateInventoryLockout(simEngine?.currentStepIndex || 0);
     }
   } else {
     ambientBg?.classList.remove('hidden');
@@ -797,22 +817,88 @@ function init() {
     }
   });
 
-  // Builder Drag and Drop handlers (Phase 17/18)
+  // Builder Drag and Drop handlers (Phase 17/18, updated Phase 22, hybrid click/spawn Phase 23)
   const inventoryPanel = document.getElementById('builder-inventory');
   const inventoryBtns = inventoryPanel?.querySelectorAll('.inventory-item-btn');
 
-  const onInventoryPointerDown = (e: PointerEvent, type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller') => {
-    e.preventDefault();
+  let isPendingDrag = false;
+  let dragType: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | 'arm' | 'vtx' | 'rx' | 'top_deck' | null = null;
+  let startX = 0;
+  let startY = 0;
+  let dragStarted = false;
+
+  const onInventoryPointerDown = (e: PointerEvent, type: 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | 'arm' | 'vtx' | 'rx' | 'top_deck') => {
     e.stopPropagation(); // Prevent OrbitControls drag start
-    if (simEngine && currentView === 'builder') {
-      simEngine.startDragging(type, e.clientX, e.clientY);
+    
+    if (e.pointerType === 'mouse') {
+      // Desktop mouse users: start dragging immediately
+      e.preventDefault();
+      if (simEngine && currentView === 'builder') {
+        simEngine.startDragging(type, e.clientX, e.clientY);
+      }
+    } else {
+      // Touch users: defer to allow scrolling
+      isPendingDrag = true;
+      dragType = type;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragStarted = false;
     }
   };
 
+  window.addEventListener('pointermove', (e: PointerEvent) => {
+    if (!isPendingDrag || !dragType) return;
+
+    if (!dragStarted) {
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+
+      if (dx > 10) {
+        // Horizontal movement - treat as scroll, cancel pending drag
+        isPendingDrag = false;
+        dragType = null;
+        return;
+      }
+
+      // Check if finger moved out of bounds or beyond vertical threshold
+      const rect = inventoryPanel?.getBoundingClientRect();
+      const isOut = rect ? (e.clientY < rect.top || e.clientY > rect.bottom || e.clientX < rect.left || e.clientX > rect.right) : false;
+
+      if (dy > 15 || isOut) {
+        dragStarted = true;
+        e.preventDefault(); // Lock scroll now that drag has officially started
+        if (simEngine && currentView === 'builder') {
+          simEngine.startDragging(dragType, e.clientX, e.clientY);
+        }
+      }
+    } else {
+      e.preventDefault(); // Prevent scrolling once drag is active
+    }
+  }, { passive: false });
+
+  window.addEventListener('pointerup', () => {
+    if (isPendingDrag && !dragStarted && dragType) {
+      // Clean tap on touch device: spawn at screen center
+      if (simEngine && currentView === 'builder') {
+        simEngine.startDragging(dragType, window.innerWidth / 2, window.innerHeight / 2);
+      }
+    }
+    isPendingDrag = false;
+    dragType = null;
+    dragStarted = false;
+  });
+
   inventoryBtns?.forEach(btn => {
-    const type = btn.getAttribute('data-type') as 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller';
+    const type = btn.getAttribute('data-type') as 'motor' | 'battery' | 'camera' | 'esc' | 'fc' | 'propeller' | 'arm' | 'vtx' | 'rx' | 'top_deck';
     btn.addEventListener('pointerdown', (e) => onInventoryPointerDown(e as PointerEvent, type));
   });
+
+  if (simEngine) {
+    simEngine.onStepChange = (index: number) => {
+      updateInventoryLockout(index);
+    };
+  }
+
 
   // Reset Builder handler
   const resetBuilderBtn = document.getElementById('btn-reset-builder');

@@ -301,40 +301,34 @@
 
         <!-- Progress Tracker Panel (Task 3) -->
         <div id="builder-progress-tracker" class="glass-panel progress-tracker-panel">
-          <span id="tracker-motors">Мотори: 0/4</span>
-          <span class="tracker-divider">|</span>
-          <span id="tracker-propellers">Пропелери: 0/4</span>
-          <span class="tracker-divider">|</span>
-          <span id="tracker-fc">FC: 0/1</span>
+          <span id="tracker-arms">Промені: 0/4</span>
           <span class="tracker-divider">|</span>
           <span id="tracker-esc">ESC: 0/1</span>
           <span class="tracker-divider">|</span>
+          <span id="tracker-fc">FC: 0/1</span>
+          <span class="tracker-divider">|</span>
           <span id="tracker-camera">Камера: 0/1</span>
           <span class="tracker-divider">|</span>
+          <span id="tracker-vtx">VTX: 0/1</span>
+          <span class="tracker-divider">|</span>
+          <span id="tracker-rx">RX: 0/1</span>
+          <span class="tracker-divider">|</span>
+          <span id="tracker-motors">Мотори: 0/4</span>
+          <span class="tracker-divider">|</span>
+          <span id="tracker-topdeck">Верхня Дека: 0/1</span>
+          <span class="tracker-divider">|</span>
           <span id="tracker-battery">Батарея: 0/1</span>
+          <span class="tracker-divider">|</span>
+          <span id="tracker-propellers">Пропелери: 0/4</span>
         </div>
 
         <div class="builder-inventory-container">
           <div id="builder-inventory" class="glass-panel inventory-panel">
-            <button class="inventory-item-btn" data-type="motor" draggable="false">
-              <div class="item-icon">⚙️</div>
+            <button class="inventory-item-btn" data-type="arm" draggable="false">
+              <div class="item-icon">📐</div>
               <div class="item-info">
-                <span class="item-name" id="inv-item-motor-name">Мотор 2806</span>
-                <span class="item-desc" id="inv-item-motor-desc">Для тяги</span>
-              </div>
-            </button>
-            <button class="inventory-item-btn" data-type="battery" draggable="false">
-              <div class="item-icon">🔋</div>
-              <div class="item-info">
-                <span class="item-name" id="inv-item-battery-name">LiPo 6S</span>
-                <span class="item-desc" id="inv-item-battery-desc">Живлення</span>
-              </div>
-            </button>
-            <button class="inventory-item-btn" data-type="camera" draggable="false">
-              <div class="item-icon">📷</div>
-              <div class="item-info">
-                <span class="item-name" id="inv-item-camera-name">FPV Камера</span>
-                <span class="item-desc" id="inv-item-camera-desc">Курсова камера</span>
+                <span class="item-name" id="inv-item-arm-name">Промінь (Arm)</span>
+                <span class="item-desc" id="inv-item-arm-desc">Карбоновий промінь</span>
               </div>
             </button>
             <button class="inventory-item-btn" data-type="esc" draggable="false">
@@ -349,6 +343,48 @@
               <div class="item-info">
                 <span class="item-name" id="inv-item-fc-name">Польотник (FC)</span>
                 <span class="item-desc" id="inv-item-fc-desc">Мозок дрона</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="camera" draggable="false">
+              <div class="item-icon">📷</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-camera-name">FPV Камера</span>
+                <span class="item-desc" id="inv-item-camera-desc">Курсова камера</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="vtx" draggable="false">
+              <div class="item-icon">📡</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-vtx-name">Відеопередавач (VTX)</span>
+                <span class="item-desc" id="inv-item-vtx-desc">Передача відео</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="rx" draggable="false">
+              <div class="item-icon">📟</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-rx-name">Приймач (RX)</span>
+                <span class="item-desc" id="inv-item-rx-desc">Прийом сигналу</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="motor" draggable="false">
+              <div class="item-icon">⚙️</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-motor-name">Мотор 2806</span>
+                <span class="item-desc" id="inv-item-motor-desc">Для тяги</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="top_deck" draggable="false">
+              <div class="item-icon">🛡️</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-top-deck-name">Верхня Дека</span>
+                <span class="item-desc" id="inv-item-top-deck-desc">Кришка рами</span>
+              </div>
+            </button>
+            <button class="inventory-item-btn" data-type="battery" draggable="false">
+              <div class="item-icon">🔋</div>
+              <div class="item-info">
+                <span class="item-name" id="inv-item-battery-name">LiPo 6S</span>
+                <span class="item-desc" id="inv-item-battery-desc">Живлення</span>
               </div>
             </button>
             <button class="inventory-item-btn" data-type="propeller" draggable="false">

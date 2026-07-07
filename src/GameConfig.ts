@@ -62,22 +62,32 @@ export const GameConfig = {
     }
   },
 
-  // 3D Builder Configurations (Data-Driven Phase 17/18)
+  // 3D Builder Configurations (Data-Driven Phase 17/18, updated Phase 22)
   builder: {
     snapThreshold: 0.5,
     slots: [
+      { id: 'arm_fr', type: 'arm', position: [0.0885, 0.011, -0.0885] as [number, number, number] },
+      { id: 'arm_fl', type: 'arm', position: [-0.0885, 0.011, -0.0885] as [number, number, number] },
+      { id: 'arm_br', type: 'arm', position: [0.0885, 0.011, 0.0885] as [number, number, number] },
+      { id: 'arm_bl', type: 'arm', position: [-0.0885, 0.011, 0.0885] as [number, number, number] },
+      
       { id: 'motor_fr', type: 'motor', position: [0.177, 0.015, -0.177] as [number, number, number] },
       { id: 'motor_fl', type: 'motor', position: [-0.177, 0.015, -0.177] as [number, number, number] },
       { id: 'motor_br', type: 'motor', position: [0.177, 0.015, 0.177] as [number, number, number] },
       { id: 'motor_bl', type: 'motor', position: [-0.177, 0.015, 0.177] as [number, number, number] },
-      { id: 'battery_center', type: 'battery', position: [0.0, 0.045, 0.0] as [number, number, number] },
-      { id: 'camera_front', type: 'camera', position: [0.0, 0.02, -0.48] as [number, number, number] },
-      { id: 'esc_bottom', type: 'esc', position: [0.0, 0.02, 0.15] as [number, number, number] },
-      { id: 'fc_top', type: 'fc', position: [0.0, 0.02, -0.15] as [number, number, number] },
+
+      { id: 'esc_bottom', type: 'esc', position: [0.0, 0.020, 0.0] as [number, number, number] },
+      { id: 'fc_top', type: 'fc', position: [0.0, 0.035, 0.0] as [number, number, number] },
+      { id: 'camera_front', type: 'camera', position: [0.0, 0.041, -0.175] as [number, number, number] },
+      { id: 'vtx_slot', type: 'vtx', position: [0.0, 0.020, -0.08] as [number, number, number] },
+      { id: 'rx_slot', type: 'rx', position: [0.0, 0.019, 0.09] as [number, number, number] },
+      { id: 'top_deck_slot', type: 'top_deck', position: [0.0, 0.060, 0.0] as [number, number, number] },
+
       { id: 'propeller_fr', type: 'propeller', position: [0.177, 0.05, -0.177] as [number, number, number] },
       { id: 'propeller_fl', type: 'propeller', position: [-0.177, 0.05, -0.177] as [number, number, number] },
       { id: 'propeller_br', type: 'propeller', position: [0.177, 0.05, 0.177] as [number, number, number] },
       { id: 'propeller_bl', type: 'propeller', position: [-0.177, 0.05, 0.177] as [number, number, number] },
+      { id: 'battery_center', type: 'battery', position: [0.0, 0.090, 0.0] as [number, number, number] },
     ],
   },
 
@@ -125,30 +135,45 @@ export const GameConfig = {
     // Builder localizations
     builderInstructions: "Перетягуйте компоненти з панелі на раму дрона для збірки.",
     builderReset: "Скинути",
+    invItemArmName: "Промінь (Arm)",
+    invItemArmDesc: "Карбоновий промінь",
     invItemMotorName: "Мотор 2806",
     invItemMotorDesc: "Для тяги",
-    invItemBatteryName: "LiPo 6S",
-    invItemBatteryDesc: "Живлення",
-    invItemCameraName: "FPV Камера",
-    invItemCameraDesc: "Курсова камера",
     invItemESCName: "Регулятор (ESC)",
     invItemESCDesc: "Контроль моторики",
     invItemFCName: "Польотник (FC)",
     invItemFCDesc: "Мозок дрона",
+    invItemVTXName: "Відеопередавач (VTX)",
+    invItemVTXDesc: "Передача відео",
+    invItemRXName: "Приймач (RX)",
+    invItemRXDesc: "Прийом сигналу",
+    invItemCameraName: "FPV Камера",
+    invItemCameraDesc: "Курсова камера",
+    invItemTopDeckName: "Верхня Дека",
+    invItemTopDeckDesc: "Кришка рами",
     invItemPropName: "Пропелери",
     invItemPropDesc: "Гвинти 5 дюймів",
+    invItemBatteryName: "LiPo 6S",
+    invItemBatteryDesc: "Живлення",
 
     // Builder Progress Tracker Labels
+    trackerArms: "Промені",
     trackerMotors: "Мотори",
     trackerPropellers: "Пропелери",
     trackerFC: "FC",
     trackerESC: "ESC",
+    trackerVTX: "VTX",
+    trackerRX: "RX",
     trackerCamera: "Камера",
+    trackerTopDeck: "Верхня Дека",
     trackerBattery: "Батарея",
 
     // Mechanical Assembly Dependency Toasts
+    toastNeedArm: "Спочатку встановіть промінь у цей слот!",
     toastNeedMotor: "Спочатку встановіть двигун!",
-    toastNeedElectronics: "Спочатку встановіть електроніку (FC та ESC)!",
+    toastNeedESC: "Спочатку встановіть ESC!",
+    toastNeedElectronics: "Встановіть всю електроніку перед закриттям рами!",
+    toastNeedTopDeck: "Батарея кріпиться тільки на верхню деку!",
   }
 };
 
