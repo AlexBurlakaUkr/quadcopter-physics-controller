@@ -250,6 +250,24 @@ let fadeOverlay: HTMLElement | null = null;
 
 const BUILD_STEPS = ['arm', 'esc', 'fc', 'camera', 'vtx', 'rx', 'motor', 'top_deck', 'battery', 'propeller'];
 
+function centerActiveInventoryButton(activeType: string) {
+  const inventoryPanel = document.getElementById('builder-inventory');
+  if (!inventoryPanel) return;
+  const activeBtn = inventoryPanel.querySelector(`.inventory-item-btn[data-type="${activeType}"]`) as HTMLElement;
+  if (!activeBtn) return;
+  
+  const panelWidth = inventoryPanel.clientWidth;
+  const btnWidth = activeBtn.offsetWidth;
+  const btnLeft = activeBtn.offsetLeft;
+  
+  const targetScrollLeft = btnLeft - (panelWidth / 2) + (btnWidth / 2);
+  
+  inventoryPanel.scrollTo({
+    left: targetScrollLeft,
+    behavior: 'smooth'
+  });
+}
+
 function updateInventoryLockout(stepIndex: number) {
   const activeType = BUILD_STEPS[stepIndex] || '';
   const inventoryPanel = document.getElementById('builder-inventory');
@@ -265,6 +283,8 @@ function updateInventoryLockout(stepIndex: number) {
       htmlBtn.style.pointerEvents = 'none';
     }
   });
+
+  centerActiveInventoryButton(activeType);
 }
 
 function transitionToView(viewName: ViewName, shouldFullscreen: boolean = false) {
@@ -897,6 +917,43 @@ function init() {
     simEngine.onStepChange = (index: number) => {
       updateInventoryLockout(index);
     };
+  }
+
+  // Desktop mouse drag-to-scroll for inventory panel
+  if (inventoryPanel) {
+    let isPanelDown = false;
+    let startPanelX = 0;
+    let panelScrollLeft = 0;
+
+    inventoryPanel.addEventListener('mousedown', (e) => {
+      const targetBtn = (e.target as HTMLElement).closest('.inventory-item-btn');
+      if (targetBtn) {
+        const type = targetBtn.getAttribute('data-type');
+        const activeType = BUILD_STEPS[simEngine?.currentStepIndex || 0];
+        if (type === activeType) {
+          return;
+        }
+      }
+      isPanelDown = true;
+      inventoryPanel.classList.add('active-scrolling');
+      startPanelX = e.pageX - inventoryPanel.offsetLeft;
+      panelScrollLeft = inventoryPanel.scrollLeft;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isPanelDown) {
+        isPanelDown = false;
+        inventoryPanel.classList.remove('active-scrolling');
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanelDown) return;
+      e.preventDefault();
+      const x = e.pageX - inventoryPanel.offsetLeft;
+      const walk = (x - startPanelX) * 1.5;
+      inventoryPanel.scrollLeft = panelScrollLeft - walk;
+    });
   }
 
 

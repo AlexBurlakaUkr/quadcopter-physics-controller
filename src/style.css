@@ -1938,8 +1938,13 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.inventory-panel.active-scrolling {
+  cursor: grabbing;
+  user-select: none;
 }
 
 /* Progress Tracker Panel (Task 2 & 3) */
@@ -2016,16 +2021,7 @@ body {
 }
 
 .inventory-panel::-webkit-scrollbar {
-  height: 6px;
-}
-
-.inventory-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.inventory-panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  display: none;
 }
 
 /* Inventory item buttons */
