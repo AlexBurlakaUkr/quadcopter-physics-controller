@@ -398,15 +398,53 @@
         </div>
       </section>
 
-      <!-- ==================== PLACEHOLDER VIEW: KNOWLEDGE BASE ==================== -->
+      <!-- ==================== KNOWLEDGE BASE VIEW ==================== -->
       <section id="knowledge-view" class="app-view hidden-view">
-        <button id="btn-back-to-menu-know" class="glass-panel back-btn" aria-label="Назад в меню">
-          <span class="back-icon">←</span>
-          <span class="btn-text" id="back-btn-text-know">Назад в меню</span>
-        </button>
-        <div class="glass-panel placeholder-content-panel">
-          <h2 class="placeholder-title" id="know-view-title">База знань</h2>
-          <p class="placeholder-desc" id="know-view-desc">Цей розділ знаходиться в розробці...</p>
+        <!-- Ambient background for knowledge base -->
+        <div class="builder-ambient-bg">
+          <div class="builder-glow-orb orb-1"></div>
+          <div class="builder-glow-orb orb-2"></div>
+          <div class="builder-glow-orb orb-3"></div>
+        </div>
+
+        <!-- Unified Top Bar -->
+        <div class="knowledge-top-bar">
+          <!-- Left side: Exit button -->
+          <button id="btn-back-to-menu-know" class="glass-panel exit-btn-know" aria-label="Назад в меню">
+            <span class="back-icon">✕</span>
+          </button>
+          
+          <!-- Center: Title -->
+          <div class="knowledge-title-container">
+            <h2 class="knowledge-title" id="know-view-title">База знань</h2>
+          </div>
+          
+          <!-- Right side: Spacer for symmetry -->
+          <div class="knowledge-controls-right" style="width: 45px;"></div>
+        </div>
+
+        <!-- Catalog Container -->
+        <div id="knowledge-catalog-container" class="knowledge-catalog-container">
+          <div id="knowledge-grid" class="knowledge-grid">
+            <!-- Cards will be dynamically generated here -->
+          </div>
+        </div>
+
+        <!-- Article Detail Modal -->
+        <div id="article-modal" class="article-modal hidden-modal">
+          <div class="article-modal-overlay" id="article-modal-overlay"></div>
+          <div class="article-modal-wrapper glass-panel">
+            <div class="article-modal-header">
+              <button id="btn-close-article" class="article-back-btn" aria-label="Назад до списку">
+                <span class="back-arrow">🔙</span> Назад
+              </button>
+            </div>
+            <div class="article-modal-scroll-content">
+              <div id="article-image-container" class="article-image-container"></div>
+              <h1 id="article-title" class="article-title"></h1>
+              <div id="article-body" class="article-body"></div>
+            </div>
+          </div>
         </div>
       </section>
 

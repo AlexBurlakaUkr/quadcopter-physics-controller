@@ -278,9 +278,11 @@ function updateInventoryLockout(stepIndex: number) {
     if (type === activeType) {
       htmlBtn.style.opacity = '1.0';
       htmlBtn.style.pointerEvents = 'auto';
+      htmlBtn.style.filter = 'none';
     } else {
-      htmlBtn.style.opacity = '0.4';
+      htmlBtn.style.opacity = '0.2';
       htmlBtn.style.pointerEvents = 'none';
+      htmlBtn.style.filter = 'grayscale(1)';
     }
   });
 
@@ -362,6 +364,14 @@ function switchView(targetView: ViewName) {
 
   // Update orientation check for the current view state
   checkOrientation();
+
+  // Exiting knowledge section cleanup to prevent memory leaks
+  if (targetView !== 'knowledge') {
+    const modal = document.getElementById('article-modal');
+    if (modal && !modal.classList.contains('hidden-modal')) {
+      closeArticleModal();
+    }
+  }
 }
 
 // Mobile Adaptation: Device Orientation Check
@@ -502,6 +512,99 @@ function initLocalization() {
   if (lblRightJoystickX) lblRightJoystickX.textContent = GameConfig.localization.lblRightJoystickX;
 }
 
+// Knowledge Base Catalog rendering (Phase 24)
+function renderKnowledgeCatalog() {
+  const gridEl = document.getElementById('knowledge-grid');
+  if (!gridEl) return;
+
+  gridEl.innerHTML = '';
+  const articles = (GameConfig as any).knowledgeArticles || [];
+
+  articles.forEach((article: any) => {
+    const card = document.createElement('div');
+    card.className = 'knowledge-card glass-panel';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.innerHTML = `
+      <div>
+        <h3 class="knowledge-card-title">${article.title}</h3>
+        <p class="knowledge-card-preview">${article.preview}</p>
+      </div>
+      <div class="knowledge-card-action">Читати далі ➔</div>
+    `;
+
+    card.addEventListener('click', () => {
+      openArticleModal(article);
+    });
+
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openArticleModal(article);
+      }
+    });
+
+    gridEl.appendChild(card);
+  });
+}
+
+function openArticleModal(article: any) {
+  if (typeof navigator.vibrate === 'function') {
+    navigator.vibrate(15);
+  }
+
+  const modal = document.getElementById('article-modal');
+  const titleEl = document.getElementById('article-title');
+  const imgContainer = document.getElementById('article-image-container');
+  const bodyEl = document.getElementById('article-body');
+
+  if (!modal || !titleEl || !imgContainer || !bodyEl) return;
+
+  // Scroll modal scrollable content container to top
+  const scrollContainer = modal.querySelector('.article-modal-scroll-content');
+  if (scrollContainer) {
+    scrollContainer.scrollTop = 0;
+  }
+
+  titleEl.textContent = article.title;
+
+  imgContainer.innerHTML = '';
+  if (article.imageUrl) {
+    const img = document.createElement('img');
+    img.src = article.imageUrl;
+    img.alt = article.title;
+    img.onerror = () => {
+      imgContainer.style.display = 'none';
+    };
+    img.onload = () => {
+      imgContainer.style.display = 'block';
+    };
+    imgContainer.appendChild(img);
+  } else {
+    imgContainer.style.display = 'none';
+  }
+
+  bodyEl.innerHTML = article.content;
+  modal.classList.remove('hidden-modal');
+}
+
+function closeArticleModal() {
+  if (typeof navigator.vibrate === 'function') {
+    navigator.vibrate(10);
+  }
+  const modal = document.getElementById('article-modal');
+  modal?.classList.add('hidden-modal');
+
+  // DOM memory leak cleanup on mobile
+  const titleEl = document.getElementById('article-title');
+  const imgContainer = document.getElementById('article-image-container');
+  const bodyEl = document.getElementById('article-body');
+
+  if (titleEl) titleEl.textContent = '';
+  if (imgContainer) imgContainer.innerHTML = '';
+  if (bodyEl) bodyEl.innerHTML = '';
+}
+
 // App Initialization
 function init() {
   if (Capacitor.isNativePlatform()) {
@@ -510,6 +613,15 @@ function init() {
 
   initLocalization();
   fadeOverlay = document.getElementById('fade-overlay');
+
+  // Render FPV knowledge base articles and register modal handlers
+  renderKnowledgeCatalog();
+
+  const btnCloseArticle = document.getElementById('btn-close-article');
+  btnCloseArticle?.addEventListener('click', closeArticleModal);
+
+  const modalOverlay = document.getElementById('article-modal-overlay');
+  modalOverlay?.addEventListener('click', closeArticleModal);
 
   // Initialize Simulator 3D Engine
   try {
@@ -627,6 +739,9 @@ function init() {
         infoModal?.classList.add('hidden-modal');
         const settingsModal = document.getElementById('settings-modal');
         settingsModal?.classList.add('hidden-modal');
+      }
+      if (id === 'btn-back-to-menu-know') {
+        closeArticleModal();
       }
       transitionToView(target, false);
     });
